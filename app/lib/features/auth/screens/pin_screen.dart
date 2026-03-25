@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 
 class PinScreen extends StatefulWidget {
   const PinScreen({super.key});
@@ -60,7 +59,7 @@ class _PinScreenState extends State<PinScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.account_balance,
@@ -111,7 +110,7 @@ class _PinScreenState extends State<PinScreen> {
                       border: Border.all(color: Colors.white54, width: 1.5),
                       borderRadius: BorderRadius.circular(8),
                       color: filled
-                          ? Colors.white.withOpacity(0.3)
+                          ? Colors.white.withValues(alpha: 0.3)
                           : Colors.transparent,
                     ),
                     child: filled
@@ -137,24 +136,23 @@ class _PinScreenState extends State<PinScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        // Biometric button
                         _NumKey(
+                          onTap: () {},
                           child: const Icon(Icons.fingerprint,
                               color: Colors.white54, size: 28),
-                          onTap: () {}, // TODO: biometric auth
                         ),
                         _NumKey(
+                          onTap: () => _onKeyTap('0'),
                           child: const Text('0',
                               style: TextStyle(
                                   color: Colors.black87,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w500)),
-                          onTap: () => _onKeyTap('0'),
                         ),
                         _NumKey(
+                          onTap: _onDelete,
                           child: const Icon(Icons.backspace_outlined,
                               color: Colors.black54),
-                          onTap: _onDelete,
                         ),
                       ],
                     ),
@@ -212,7 +210,7 @@ class _NumKey extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, 2))
           ],

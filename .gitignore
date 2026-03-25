@@ -6,6 +6,11 @@ app/.flutter-plugins-dependencies
 app/.packages
 app/pubspec.lock
 
+# IDE
+.dart_tool/
+.idea/
+*.iml
+
 # Android
 app/android/.gradle/
 app/android/local.properties
@@ -27,3 +32,6 @@ supabase/functions/.env
 .env.local
 .env.production
 app/lib/core/constants/supabase_constants.dart
+
+# Metadata
+.metadata

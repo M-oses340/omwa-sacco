@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/auth_bloc.dart';
 import '../../../core/theme/app_theme.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -80,7 +81,7 @@ class WelcomeScreen extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton.icon(
-                    onPressed: () => context.go('/pin'),
+                    onPressed: () => context.read<AuthBloc>().add(AuthNavigateToPhone()),
                     icon: const Icon(Icons.lock_open, color: Colors.white),
                     label: const Text('LOG IN',
                         style: TextStyle(

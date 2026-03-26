@@ -20,11 +20,11 @@ class OmwaSaccoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    return MaterialApp(
       title: 'Omwa Sacco',
       theme: AppTheme.theme,
-      routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
+      home: const AppShell(),
     );
   }
 }

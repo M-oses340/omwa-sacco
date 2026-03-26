@@ -2,31 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 
-class PinScreen extends StatefulWidget {
-  final bool isNewUser;
-  const PinScreen({super.key, this.isNewUser = false});
+class PinConfirmScreen extends StatefulWidget {
+  final String firstPin;
+  const PinConfirmScreen({super.key, required this.firstPin});
 
   @override
-  State<PinScreen> createState() => _PinScreenState();
+  State<PinConfirmScreen> createState() => _PinConfirmScreenState();
 }
 
-class _PinScreenState extends State<PinScreen> {
+class _PinConfirmScreenState extends State<PinConfirmScreen> {
   final List<String> _pin = [];
   static const int _pinLength = 4;
   bool _isLoading = false;
-
-  String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 17) return 'Good Afternoon!';
-    return 'Good Night!';
-  }
 
   void _onKeyTap(String key) {
     if (_isLoading) return;
     if (_pin.length < _pinLength) {
       setState(() => _pin.add(key));
-      if (_pin.length == _pinLength) _submitPin();
+      if (_pin.length == _pinLength) _confirm();
     }
   }
 
@@ -35,14 +28,19 @@ class _PinScreenState extends State<PinScreen> {
     if (_pin.isNotEmpty) setState(() => _pin.removeLast());
   }
 
-  void _submitPin() {
+  void _confirm() {
     final pin = _pin.join();
-    if (widget.isNewUser) {
-      // Go to confirm step via bloc
-      context.read<AuthBloc>().add(AuthPinFirstEntry(pin));
-    } else {
-      context.read<AuthBloc>().add(AuthPinSubmitted(pin));
+    if (pin != widget.firstPin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PINs do not match. Try again.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      setState(() => _pin.clear());
+      return;
     }
+    context.read<AuthBloc>().add(AuthPinSetup(pin));
   }
 
   @override
@@ -52,16 +50,12 @@ class _PinScreenState extends State<PinScreen> {
         if (state is AuthLoading) {
           setState(() => _isLoading = true);
         } else {
-          setState(() {
-            _isLoading = false;
-            if (state is AuthError) _pin.clear();
-          });
+          setState(() => _isLoading = false);
           if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.redAccent,
-              ),
+                  content: Text(state.message),
+                  backgroundColor: Colors.redAccent),
             );
           }
         }
@@ -110,23 +104,12 @@ class _PinScreenState extends State<PinScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(_greeting(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w300)),
-                ),
                 const Spacer(),
-                Center(
-                  child: Text(
-                    widget.isNewUser ? 'Set Your PIN' : 'Enter Your PIN To Proceed',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
+                const Center(
+                  child: Text('Confirm Your PIN',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
                 ),
                 const SizedBox(height: 24),
-                // PIN boxes
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(_pinLength, (i) {
@@ -151,14 +134,13 @@ class _PinScreenState extends State<PinScreen> {
                   }),
                 ),
                 const SizedBox(height: 32),
-                // Loading indicator or numpad
                 if (_isLoading)
                   const Center(
                     child: Column(
                       children: [
                         CircularProgressIndicator(color: Colors.white),
                         SizedBox(height: 12),
-                        Text('Verifying...',
+                        Text('Setting up your PIN...',
                             style: TextStyle(color: Colors.white70)),
                       ],
                     ),
@@ -177,11 +159,7 @@ class _PinScreenState extends State<PinScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _NumKey(
-                              onTap: () {},
-                              child: const Icon(Icons.fingerprint,
-                                  color: Colors.white54, size: 28),
-                            ),
+                            const SizedBox(width: 80),
                             _NumKey(
                               onTap: () => _onKeyTap('0'),
                               child: const Text('0',
@@ -200,16 +178,7 @@ class _PinScreenState extends State<PinScreen> {
                       ],
                     ),
                   ),
-                const SizedBox(height: 16),
-                if (!_isLoading)
-                  Center(
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text('Forgot PIN?',
-                          style: TextStyle(color: Colors.white70)),
-                    ),
-                  ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 40),
               ],
             ),
           ),

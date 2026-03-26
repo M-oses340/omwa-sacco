@@ -15,7 +15,7 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => AuthBloc(),
+      create: (_) => AuthBloc()..add(AuthCheckSession()),
       child: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {

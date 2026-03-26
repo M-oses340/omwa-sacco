@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:local_auth/local_auth.dart';
 import '../bloc/auth_bloc.dart';
 
 class PinScreen extends StatefulWidget {
@@ -14,6 +16,44 @@ class _PinScreenState extends State<PinScreen> {
   final List<String> _pin = [];
   static const int _pinLength = 4;
   bool _isLoading = false;
+  bool _biometricAvailable = false;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final canCheck = await _localAuth.canCheckBiometrics;
+    final isSupported = await _localAuth.isDeviceSupported();
+    final available = await _localAuth.getAvailableBiometrics();
+    debugPrint('[BIOMETRIC] canCheckBiometrics: $canCheck');
+    debugPrint('[BIOMETRIC] isDeviceSupported: $isSupported');
+    debugPrint('[BIOMETRIC] availableBiometrics: $available');
+    if (mounted) setState(() => _biometricAvailable = canCheck && isSupported);
+    if (!widget.isNewUser && _biometricAvailable) _tryBiometric();
+  }
+
+  Future<void> _tryBiometric() async {
+    debugPrint('[BIOMETRIC] Attempting authentication...');
+    try {
+      final success = await _localAuth.authenticate(
+        localizedReason: 'Use fingerprint to unlock Omwa Sacco',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+      debugPrint('[BIOMETRIC] Result: $success');
+      if (success && mounted) {
+        context.read<AuthBloc>().add(AuthPinSubmitted('__biometric__'));
+      }
+    } catch (e) {
+      debugPrint('[BIOMETRIC] Error: $e');
+    }
+  }
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -178,9 +218,12 @@ class _PinScreenState extends State<PinScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             _NumKey(
-                              onTap: () {},
-                              child: const Icon(Icons.fingerprint,
-                                  color: Colors.white54, size: 28),
+                              onTap: _biometricAvailable ? _tryBiometric : () {},
+                              child: Icon(
+                                Icons.fingerprint,
+                                color: _biometricAvailable ? Colors.white : Colors.white24,
+                                size: 32,
+                              ),
                             ),
                             _NumKey(
                               onTap: () => _onKeyTap('0'),

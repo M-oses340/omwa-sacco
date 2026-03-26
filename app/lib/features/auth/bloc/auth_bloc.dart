@@ -13,6 +13,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   String? _currentPhone;
 
   AuthBloc() : super(AuthInitial()) {
+    on<AuthCheckSession>(_onCheckSession);
     on<AuthNavigateToPhone>((event, emit) => emit(AuthPhoneEntry()));
     on<AuthPhoneSubmitted>(_onPhoneSubmitted);
     on<AuthOtpSubmitted>(_onOtpSubmitted);
@@ -21,6 +22,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPinSubmitted>(_onPinSubmitted);
     on<AuthPinSetup>(_onPinSetup);
     on<AuthLogoutRequested>(_onLogout);
+  }
+
+  Future<void> _onCheckSession(
+      AuthCheckSession event, Emitter<AuthState> emit) async {
+    final session = _supabase.auth.currentSession;
+    debugPrint('[AUTH] Checking session: ${session != null ? 'found' : 'none'}');
+    if (session == null) {
+      emit(AuthInitial());
+      return;
+    }
+    final user = session.user;
+    final storedPin = await _storage.read(key: 'user_pin_${user.id}');
+    debugPrint('[AUTH] Stored PIN exists: ${storedPin != null}');
+    if (storedPin == null) {
+      emit(AuthInitial());
+      return;
+    }
+    debugPrint('[AUTH] Existing session found for user: ${user.id}');
+    emit(AuthPinEntry(isNewUser: false));
   }
 
   Future<void> _onPhoneSubmitted(
@@ -152,7 +172,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       final storedPin = await _storage.read(key: 'user_pin_${user.id}');
-      if (storedPin != event.pin) {
+      if (storedPin != event.pin && event.pin != '__biometric__') {
         emit(AuthError('Invalid PIN'));
         emit(AuthPinEntry(isNewUser: false));
         return;
@@ -248,7 +268,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'status': 'active',
         'otp_verified': true,
         'last_used_at': DateTime.now().toIso8601String(),
-      });
+      }, onConflict: 'member_id,device_id');
     } catch (e) {
       // Log but don't fail auth
       debugPrint('Device registration failed: $e');

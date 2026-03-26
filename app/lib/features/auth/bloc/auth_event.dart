@@ -2,6 +2,8 @@ part of 'auth_bloc.dart';
 
 abstract class AuthEvent {}
 
+class AuthCheckSession extends AuthEvent {}
+
 class AuthNavigateToPhone extends AuthEvent {}
 
 class AuthPhoneSubmitted extends AuthEvent {

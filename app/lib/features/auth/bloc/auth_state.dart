@@ -23,6 +23,8 @@ class AuthPinConfirm extends AuthState {
   AuthPinConfirm(this.firstPin);
 }
 
+class AuthRegistration extends AuthState {}
+
 class AuthAuthenticated extends AuthState {
   final Map<String, dynamic> member;
   AuthAuthenticated(this.member);

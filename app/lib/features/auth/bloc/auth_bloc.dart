@@ -16,6 +16,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthNavigateToPhone>((event, emit) => emit(AuthPhoneEntry()));
     on<AuthPhoneSubmitted>(_onPhoneSubmitted);
     on<AuthOtpSubmitted>(_onOtpSubmitted);
+    on<AuthRegisterSubmitted>(_onRegisterSubmitted);
     on<AuthPinFirstEntry>((event, emit) => emit(AuthPinConfirm(event.pin)));
     on<AuthPinSubmitted>(_onPinSubmitted);
     on<AuthPinSetup>(_onPinSetup);
@@ -25,11 +26,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onPhoneSubmitted(
       AuthPhoneSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
+    debugPrint('[AUTH] Sending OTP to email: ${event.phone}');
     try {
       _currentPhone = event.phone;
-      await _supabase.auth.signInWithOtp(phone: event.phone);
+      await _supabase.auth.signInWithOtp(email: event.phone);
+      debugPrint('[AUTH] OTP sent successfully to: ${event.phone}');
       emit(AuthOtpEntry(event.phone));
-    } catch (e) {
+    } on AuthException catch (e) {
+      debugPrint('[AUTH] AuthException sending OTP: ${e.message} (status: ${e.statusCode})');
+      emit(AuthError('Failed to send OTP: ${e.message}'));
+    } catch (e, stack) {
+      debugPrint('[AUTH] Unexpected error sending OTP: $e');
+      debugPrint('[AUTH] Stack trace: $stack');
       emit(AuthError('Failed to send OTP: ${e.toString()}'));
     }
   }
@@ -37,44 +45,86 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onOtpSubmitted(
       AuthOtpSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
+    debugPrint('[AUTH] Verifying OTP for phone: $_currentPhone');
     try {
       if (_currentPhone == null) {
+        debugPrint('[AUTH] Error: phone number is null');
         emit(AuthError('Phone number not found'));
         return;
       }
 
       final response = await _supabase.auth.verifyOTP(
-        phone: _currentPhone!,
+        email: _currentPhone!,
         token: event.otp,
-        type: OtpType.sms,
+        type: OtpType.email,
       );
 
+      debugPrint('[AUTH] OTP verified. User: ${response.user?.id}');
+
       if (response.user == null) {
+        debugPrint('[AUTH] Error: user is null after OTP verification');
         emit(AuthError('Invalid OTP'));
         return;
       }
 
-      // Check if member exists
       final memberData = await _supabase
           .from('members')
           .select()
           .eq('user_id', response.user!.id)
           .maybeSingle();
 
+      debugPrint('[AUTH] Member lookup result: ${memberData != null ? 'found' : 'not found'}');
+
       if (memberData == null) {
-        // New user - needs PIN setup
-        emit(AuthPinEntry(isNewUser: true));
+        emit(AuthRegistration());
       } else {
-        // Existing user - check PIN
         final storedPin = await _storage.read(key: 'user_pin_${response.user!.id}');
+        debugPrint('[AUTH] Stored PIN exists: ${storedPin != null}');
         if (storedPin == null) {
           emit(AuthPinEntry(isNewUser: true));
         } else {
           emit(AuthPinEntry(isNewUser: false));
         }
       }
-    } catch (e) {
+    } on AuthException catch (e) {
+      debugPrint('[AUTH] AuthException verifying OTP: ${e.message} (status: ${e.statusCode})');
+      emit(AuthError('OTP verification failed: ${e.message}'));
+    } catch (e, stack) {
+      debugPrint('[AUTH] Unexpected error verifying OTP: $e');
+      debugPrint('[AUTH] Stack trace: $stack');
       emit(AuthError('OTP verification failed: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onRegisterSubmitted(
+      AuthRegisterSubmitted event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        emit(AuthError('User not authenticated'));
+        return;
+      }
+
+      // Generate member number based on current count
+      final countResult = await _supabase.from('members').select('id');
+      final memberNumber = 'OM${(countResult.length + 1).toString().padLeft(4, '0')}';
+
+      await _supabase.from('members').insert({
+        'user_id': user.id,
+        'member_number': memberNumber,
+        'full_name': event.fullName,
+        'national_id': event.nationalId,
+        'phone_number': event.phoneNumber,
+        'email': user.email,
+        'status': 'active',
+      });
+
+      emit(AuthPinEntry(isNewUser: true));
+    } on PostgrestException catch (e) {
+      emit(AuthError('Registration failed: ${e.message}'));
+    } catch (e) {
+      emit(AuthError('Registration failed: ${e.toString()}'));
     }
   }
 
@@ -127,20 +177,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Register device
       await _registerDevice();
 
-      // Fetch or create member record
       final memberData = await _supabase
           .from('members')
           .select()
           .eq('user_id', user.id)
-          .maybeSingle();
+          .single();
 
-      if (memberData != null) {
-        emit(AuthAuthenticated(memberData));
-      } else {
-        // Member record doesn't exist - this shouldn't happen in production
-        // but handle gracefully
-        emit(AuthError('Member profile not found. Contact admin.'));
-      }
+      emit(AuthAuthenticated(memberData));
     } catch (e) {
       emit(AuthError('PIN setup failed: ${e.toString()}'));
     }
@@ -178,7 +221,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .from('members')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
+
+      if (memberData == null) return;
 
       // Register device
       await _supabase.from('member_devices').upsert({

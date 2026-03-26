@@ -3,9 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
 import '../bloc/auth_bloc.dart';
 
-class OtpScreen extends StatelessWidget {
+class OtpScreen extends StatefulWidget {
   final String phone;
   const OtpScreen({super.key, required this.phone});
+
+  @override
+  State<OtpScreen> createState() => _OtpScreenState();
+}
+
+class _OtpScreenState extends State<OtpScreen> {
+  bool _resent = false;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +67,7 @@ class OtpScreen extends StatelessWidget {
                         fontSize: 24,
                         fontWeight: FontWeight.w300)),
                 const SizedBox(height: 8),
-                Text('Enter the 6-digit code sent to $phone',
+                Text('Enter the 6-digit code sent to ${widget.phone}',
                     style:
                         const TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 40),
@@ -98,6 +105,25 @@ class OtpScreen extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                Center(
+                  child: TextButton(
+                    onPressed: _resent
+                        ? null
+                        : () {
+                            context
+                                .read<AuthBloc>()
+                                .add(AuthPhoneSubmitted(widget.phone));
+                            setState(() => _resent = true);
+                            Future.delayed(const Duration(seconds: 30),
+                                () => setState(() => _resent = false));
+                          },
+                    child: Text(
+                      _resent ? 'Code resent' : 'Resend code',
+                      style: TextStyle(
+                          color: _resent ? Colors.white38 : Colors.white70),
+                    ),
+                  ),
+                ),
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),

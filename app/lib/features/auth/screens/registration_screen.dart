@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
-import '../../../core/theme/app_theme.dart';
 
-class PhoneScreen extends StatefulWidget {
-  const PhoneScreen({super.key});
+class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({super.key});
 
   @override
-  State<PhoneScreen> createState() => _PhoneScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _PhoneScreenState extends State<PhoneScreen> {
-  final _controller = TextEditingController();
+class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _idController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   @override
   void dispose() {
-    _controller.dispose();
+    _nameController.dispose();
+    _idController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final email = _controller.text.trim();
-      context.read<AuthBloc>().add(AuthPhoneSubmitted(email));
+      context.read<AuthBloc>().add(AuthRegisterSubmitted(
+            fullName: _nameController.text.trim(),
+            nationalId: _idController.text.trim(),
+            phoneNumber: _phoneController.text.trim(),
+          ));
     }
   }
 
@@ -76,63 +82,36 @@ class _PhoneScreenState extends State<PhoneScreen> {
                     ],
                   ),
                   const SizedBox(height: 48),
-                  const Text('Enter your email address',
+                  const Text('Create your account',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.w300)),
                   const SizedBox(height: 8),
-                  const Text('We\'ll send you a one-time code',
+                  const Text('Fill in your details to get started',
                       style: TextStyle(color: Colors.white70, fontSize: 14)),
                   const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _controller,
-                    keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                    decoration: InputDecoration(
-                      hintText: 'you@example.com',
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.white54),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white38),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.redAccent),
-                      ),
-                      errorStyle: const TextStyle(color: Colors.redAccent),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Enter email address';
-                      if (!v.contains('@')) return 'Enter a valid email address';
-                      return null;
-                    },
-                  ),
+                  _buildField(_nameController, 'Full Name', Icons.person),
+                  const SizedBox(height: 16),
+                  _buildField(_idController, 'National ID', Icons.badge),
+                  const SizedBox(height: 16),
+                  _buildField(_phoneController, 'Phone Number', Icons.phone,
+                      keyboardType: TextInputType.phone),
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
+                    height: 52,
                     child: ElevatedButton(
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1565C0),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30)),
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('SEND OTP',
+                      child: const Text('Continue',
                           style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -142,6 +121,42 @@ class _PhoneScreenState extends State<PhoneScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: Colors.white70),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.white38),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.white),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.redAccent),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.redAccent),
+        ),
+        errorStyle: const TextStyle(color: Colors.redAccent),
+      ),
+      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
     );
   }
 }

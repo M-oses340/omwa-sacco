@@ -29,4 +29,15 @@ class AuthPinSetup extends AuthEvent {
   AuthPinSetup(this.pin);
 }
 
+class AuthRegisterSubmitted extends AuthEvent {
+  final String fullName;
+  final String nationalId;
+  final String phoneNumber;
+  AuthRegisterSubmitted({
+    required this.fullName,
+    required this.nationalId,
+    required this.phoneNumber,
+  });
+}
+
 class AuthLogoutRequested extends AuthEvent {}

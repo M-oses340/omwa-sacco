@@ -6,6 +6,7 @@ import '../../features/auth/screens/phone_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/pin_screen.dart';
 import '../../features/auth/screens/pin_confirm_screen.dart';
+import '../../features/auth/screens/registration_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 
 class AppShell extends StatelessWidget {
@@ -43,6 +44,9 @@ class AppShell extends StatelessWidget {
           }
           if (state is AuthPinConfirm) {
             return PinConfirmScreen(firstPin: state.firstPin);
+          }
+          if (state is AuthRegistration) {
+            return const RegistrationScreen();
           }
           if (state is AuthAuthenticated) {
             return DashboardScreen(member: state.member);

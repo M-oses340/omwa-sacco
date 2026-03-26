@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import '../../../core/services/connectivity_service.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -49,7 +50,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     debugPrint('[AUTH] Sending OTP to email: ${event.phone}');
     try {
       _currentPhone = event.phone;
-      await _supabase.auth.signInWithOtp(email: event.phone);
+      await ConnectivityService.instance.guard(
+        () => _supabase.auth.signInWithOtp(email: event.phone),
+      );
       debugPrint('[AUTH] OTP sent successfully to: ${event.phone}');
       emit(AuthOtpEntry(event.phone));
     } on AuthException catch (e) {
@@ -73,10 +76,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      final response = await _supabase.auth.verifyOTP(
-        email: _currentPhone!,
-        token: event.otp,
-        type: OtpType.email,
+      final response = await ConnectivityService.instance.guard(
+        () => _supabase.auth.verifyOTP(
+          email: _currentPhone!,
+          token: event.otp,
+          type: OtpType.email,
+        ),
       );
 
       debugPrint('[AUTH] OTP verified. User: ${response.user?.id}');

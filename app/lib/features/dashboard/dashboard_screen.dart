@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/connectivity_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -29,16 +30,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final supabase = Supabase.instance.client;
       final memberId = widget.member['id'];
 
-      final results = await Future.wait([
-        supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-        supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-        supabase
-            .from('transactions')
-            .select()
-            .eq('member_id', memberId)
-            .order('created_at', ascending: false)
-            .limit(5),
-      ]);
+      final results = await ConnectivityService.instance.guard(() => Future.wait([
+            supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
+            supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
+            supabase
+                .from('transactions')
+                .select()
+                .eq('member_id', memberId)
+                .order('created_at', ascending: false)
+                .limit(5),
+          ]));
 
       setState(() {
         _bosa = results[0] as Map<String, dynamic>?;
@@ -48,6 +49,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (e) {
       setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red.shade700,
+        ));
+      }
     }
   }
 

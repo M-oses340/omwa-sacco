@@ -57,18 +57,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final memberNumber = widget.member['member_number'] ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
       body: Column(
         children: [
           // Header
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-              ),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
               ),
@@ -372,6 +367,7 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final type = tx['transaction_type'] ?? '';
     final amount = double.tryParse(tx['amount'].toString()) ?? 0;
     final isCredit = ['deposit', 'loan_disbursement', 'dividend'].contains(type);
@@ -381,7 +377,7 @@ class _TransactionTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

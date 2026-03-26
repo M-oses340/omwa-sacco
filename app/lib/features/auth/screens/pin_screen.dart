@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
 import '../bloc/auth_bloc.dart';
+import '../widgets/auth_header.dart';
 
 class PinScreen extends StatefulWidget {
   final bool isNewUser;
@@ -59,7 +60,7 @@ class _PinScreenState extends State<PinScreen> {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good Morning!';
     if (hour < 17) return 'Good Afternoon!';
-    return 'Good Night!';
+    return 'Good Evening!';
   }
 
   void _onKeyTap(String key) {
@@ -78,7 +79,6 @@ class _PinScreenState extends State<PinScreen> {
   void _submitPin() {
     final pin = _pin.join();
     if (widget.isNewUser) {
-      // Go to confirm step via bloc
       context.read<AuthBloc>().add(AuthPinFirstEntry(pin));
     } else {
       context.read<AuthBloc>().add(AuthPinSubmitted(pin));
@@ -87,6 +87,9 @@ class _PinScreenState extends State<PinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthLoading) {
@@ -97,181 +100,147 @@ class _PinScreenState extends State<PinScreen> {
             if (state is AuthError) _pin.clear();
           });
           if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.redAccent,
+            ));
           }
         }
       },
       child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF90CAF9), Color(0xFF1565C0)],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: const AuthHeader(),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(_greeting(),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(fontWeight: FontWeight.w300)),
+              ),
+              const Spacer(),
+              Center(
+                child: Text(
+                  widget.isNewUser ? 'Set Your PIN' : 'Enter Your PIN To Proceed',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // PIN dots
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_pinLength, (i) {
+                  final filled = i < _pin.length;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: cs.outline.withValues(alpha: 0.5), width: 1.5),
+                      borderRadius: BorderRadius.circular(8),
+                      color: filled
+                          ? cs.primary.withValues(alpha: 0.2)
+                          : Colors.transparent,
+                    ),
+                    child: filled
+                        ? Center(
+                            child: Icon(Icons.circle, color: cs.primary, size: 14))
+                        : null,
+                  );
+                }),
+              ),
+              const SizedBox(height: 32),
+              if (_isLoading)
+                Center(
+                  child: Column(
                     children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.account_balance,
-                            color: Colors.white, size: 24),
-                      ),
-                      const SizedBox(width: 10),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      CircularProgressIndicator(color: cs.primary),
+                      const SizedBox(height: 12),
+                      Text('Verifying...',
+                          style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.6))),
+                    ],
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      _buildRow(context, ['1', '2', '3'], isDark),
+                      const SizedBox(height: 12),
+                      _buildRow(context, ['4', '5', '6'], isDark),
+                      const SizedBox(height: 12),
+                      _buildRow(context, ['7', '8', '9'], isDark),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Text('Omwa Sacco',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold)),
-                          Text('United for Prosperity',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 10)),
+                          _NumKey(
+                            isDark: isDark,
+                            onTap: _biometricAvailable ? _tryBiometric : () {},
+                            child: Icon(Icons.fingerprint,
+                                color: _biometricAvailable
+                                    ? cs.primary
+                                    : cs.onSurface.withValues(alpha: 0.2),
+                                size: 32),
+                          ),
+                          _NumKey(
+                            isDark: isDark,
+                            onTap: () => _onKeyTap('0'),
+                            child: Text('0',
+                                style: TextStyle(
+                                    color: cs.onSurface,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w500)),
+                          ),
+                          _NumKey(
+                            isDark: isDark,
+                            onTap: _onDelete,
+                            child: Icon(Icons.backspace_outlined,
+                                color: cs.onSurface.withValues(alpha: 0.7)),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(_greeting(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w300)),
-                ),
-                const Spacer(),
+              const SizedBox(height: 16),
+              if (!_isLoading)
                 Center(
-                  child: Text(
-                    widget.isNewUser ? 'Set Your PIN' : 'Enter Your PIN To Proceed',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  child: TextButton(
+                    onPressed: () {},
+                    child: const Text('Forgot PIN?'),
                   ),
                 ),
-                const SizedBox(height: 24),
-                // PIN boxes
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_pinLength, (i) {
-                    final filled = i < _pin.length;
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white54, width: 1.5),
-                        borderRadius: BorderRadius.circular(8),
-                        color: filled
-                            ? Colors.white.withValues(alpha: 0.3)
-                            : Colors.transparent,
-                      ),
-                      child: filled
-                          ? const Center(
-                              child: Icon(Icons.circle,
-                                  color: Colors.white, size: 14))
-                          : null,
-                    );
-                  }),
-                ),
-                const SizedBox(height: 32),
-                // Loading indicator or numpad
-                if (_isLoading)
-                  const Center(
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(height: 12),
-                        Text('Verifying...',
-                            style: TextStyle(color: Colors.white70)),
-                      ],
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        _buildRow(['1', '2', '3']),
-                        const SizedBox(height: 12),
-                        _buildRow(['4', '5', '6']),
-                        const SizedBox(height: 12),
-                        _buildRow(['7', '8', '9']),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _NumKey(
-                              onTap: _biometricAvailable ? _tryBiometric : () {},
-                              child: Icon(
-                                Icons.fingerprint,
-                                color: _biometricAvailable ? Colors.white : Colors.white24,
-                                size: 32,
-                              ),
-                            ),
-                            _NumKey(
-                              onTap: () => _onKeyTap('0'),
-                              child: const Text('0',
-                                  style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w500)),
-                            ),
-                            _NumKey(
-                              onTap: _onDelete,
-                              child: const Icon(Icons.backspace_outlined,
-                                  color: Colors.black54),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                if (!_isLoading)
-                  Center(
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text('Forgot PIN?',
-                          style: TextStyle(color: Colors.white70)),
-                    ),
-                  ),
-                const SizedBox(height: 24),
-              ],
-            ),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRow(List<String> keys) {
+  Widget _buildRow(BuildContext context, List<String> keys, bool isDark) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: keys
           .map((k) => _NumKey(
+                isDark: isDark,
+                onTap: () => _onKeyTap(k),
                 child: Text(k,
-                    style: const TextStyle(
-                        color: Colors.black87,
+                    style: TextStyle(
+                        color: cs.onSurface,
                         fontSize: 22,
                         fontWeight: FontWeight.w500)),
-                onTap: () => _onKeyTap(k),
               ))
           .toList(),
     );
@@ -281,22 +250,24 @@ class _PinScreenState extends State<PinScreen> {
 class _NumKey extends StatelessWidget {
   final Widget child;
   final VoidCallback onTap;
+  final bool isDark;
 
-  const _NumKey({required this.child, required this.onTap});
+  const _NumKey({required this.child, required this.onTap, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 80,
         height: 64,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
                 blurRadius: 4,
                 offset: const Offset(0, 2))
           ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
 import '../bloc/auth_bloc.dart';
+import '../widgets/auth_header.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -16,124 +17,84 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF90CAF9), Color(0xFF1565C0)],
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.account_balance,
-                          color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 10),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Omwa Sacco',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
-                        Text('United for Prosperity',
-                            style:
-                                TextStyle(color: Colors.white70, fontSize: 10)),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 48),
-                const Text('Verify your number',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w300)),
-                const SizedBox(height: 8),
-                Text('Enter the 6-digit code sent to ${widget.phone}',
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 14)),
-                const SizedBox(height: 40),
-                Center(
-                  child: Pinput(
-                    length: 6,
-                    keyboardType: TextInputType.number,
-                    defaultPinTheme: PinTheme(
-                      width: 52,
-                      height: 56,
-                      textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white38, width: 1.5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    focusedPinTheme: PinTheme(
-                      width: 52,
-                      height: 56,
-                      textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 2),
-                        borderRadius: BorderRadius.circular(10),
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    onCompleted: (otp) =>
-                        context.read<AuthBloc>().add(AuthOtpSubmitted(otp)),
-                  ),
-                ),
-                const Spacer(),
-                Center(
-                  child: TextButton(
-                    onPressed: _resent
-                        ? null
-                        : () {
-                            context
-                                .read<AuthBloc>()
-                                .add(AuthPhoneSubmitted(widget.phone));
-                            setState(() => _resent = true);
-                            Future.delayed(const Duration(seconds: 30),
-                                () => setState(() => _resent = false));
-                          },
-                    child: Text(
-                      _resent ? 'Code resent' : 'Resend code',
-                      style: TextStyle(
-                          color: _resent ? Colors.white38 : Colors.white70),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              const AuthHeader(),
+              const SizedBox(height: 48),
+              Text('Verify your email',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text('Enter the 6-digit code sent to ${widget.phone}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
+              const SizedBox(height: 40),
+              Center(
+                child: Pinput(
+                  length: 6,
+                  keyboardType: TextInputType.number,
+                  defaultPinTheme: PinTheme(
+                    width: 52,
+                    height: 56,
+                    textStyle: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: cs.outline.withValues(alpha: 0.5), width: 1.5),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ),
-                Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Wrong number? Go back',
-                        style: TextStyle(color: Colors.white70)),
+                  focusedPinTheme: PinTheme(
+                    width: 52,
+                    height: 56,
+                    textStyle: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cs.primary, width: 2),
+                      borderRadius: BorderRadius.circular(10),
+                      color: cs.primary.withValues(alpha: 0.08),
+                    ),
                   ),
+                  onCompleted: (otp) =>
+                      context.read<AuthBloc>().add(AuthOtpSubmitted(otp)),
                 ),
-                const SizedBox(height: 24),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Center(
+                child: TextButton(
+                  onPressed: _resent
+                      ? null
+                      : () {
+                          context
+                              .read<AuthBloc>()
+                              .add(AuthPhoneSubmitted(widget.phone));
+                          setState(() => _resent = true);
+                          Future.delayed(const Duration(seconds: 30),
+                              () => setState(() => _resent = false));
+                        },
+                  child: Text(_resent ? 'Code resent' : 'Resend code'),
+                ),
+              ),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Wrong email? Go back'),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
       ),

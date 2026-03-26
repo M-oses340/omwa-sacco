@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
@@ -24,7 +25,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _submit() {
-    if (_formKey.currentState!.validate()) {
+    debugPrint('[REGISTER] Continue pressed');
+    debugPrint('[REGISTER] Full name: "${_nameController.text.trim()}"');
+    debugPrint('[REGISTER] National ID: "${_idController.text.trim()}"');
+    debugPrint('[REGISTER] Phone: "${_phoneController.text.trim()}"');
+
+    final isValid = _formKey.currentState!.validate();
+    debugPrint('[REGISTER] Form valid: $isValid');
+
+    if (isValid) {
+      debugPrint('[REGISTER] Dispatching AuthRegisterSubmitted');
       context.read<AuthBloc>().add(AuthRegisterSubmitted(
             fullName: _nameController.text.trim(),
             nationalId: _idController.text.trim(),
@@ -45,7 +55,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -97,7 +107,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   const SizedBox(height: 16),
                   _buildField(_phoneController, 'Phone Number', Icons.phone,
                       keyboardType: TextInputType.phone),
-                  const Spacer(),
+                  const SizedBox(height: 40),
                   SizedBox(
                     width: double.infinity,
                     height: 52,

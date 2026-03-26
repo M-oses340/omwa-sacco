@@ -102,13 +102,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
+        debugPrint('[REGISTER] Error: no authenticated user');
         emit(AuthError('User not authenticated'));
         return;
       }
 
+      debugPrint('[REGISTER] Creating member for user: ${user.id}');
+      debugPrint('[REGISTER] Email: ${user.email}');
+      debugPrint('[REGISTER] Full name: ${event.fullName}');
+      debugPrint('[REGISTER] National ID: ${event.nationalId}');
+      debugPrint('[REGISTER] Phone: ${event.phoneNumber}');
+
       // Generate member number based on current count
       final countResult = await _supabase.from('members').select('id');
       final memberNumber = 'OM${(countResult.length + 1).toString().padLeft(4, '0')}';
+      debugPrint('[REGISTER] Generated member number: $memberNumber');
 
       await _supabase.from('members').insert({
         'user_id': user.id,
@@ -120,10 +128,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'status': 'active',
       });
 
+      debugPrint('[REGISTER] Member created successfully');
       emit(AuthPinEntry(isNewUser: true));
     } on PostgrestException catch (e) {
+      debugPrint('[REGISTER] PostgrestException: ${e.message}');
+      debugPrint('[REGISTER] Code: ${e.code}, Details: ${e.details}, Hint: ${e.hint}');
       emit(AuthError('Registration failed: ${e.message}'));
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[REGISTER] Unexpected error: $e');
+      debugPrint('[REGISTER] Stack: $stack');
       emit(AuthError('Registration failed: ${e.toString()}'));
     }
   }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
+import '../transactions/bloc/transaction_bloc.dart';
+import '../transactions/screens/deposit_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 
@@ -209,7 +211,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   icon: Icons.arrow_downward,
                                   label: 'Deposit',
                                   color: Colors.green,
-                                  onTap: () {}),
+                                  onTap: () async {
+                                    final refreshed = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => BlocProvider(
+                                          create: (_) => TransactionBloc(),
+                                          child: DepositScreen(
+                                              member: widget.member),
+                                        ),
+                                      ),
+                                    );
+                                    if (refreshed == true) _loadData();
+                                  }),
                               _QuickAction(
                                   icon: Icons.arrow_upward,
                                   label: 'Withdraw',

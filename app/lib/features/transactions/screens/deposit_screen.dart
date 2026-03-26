@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intasend_flutter/intasend_flutter.dart';
-import 'package:intasend_flutter/models/checkout.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
 import '../bloc/transaction_bloc.dart';
 import '../../../core/constants/payment_constants.dart';
 
@@ -36,47 +37,73 @@ class _DepositScreenState extends State<DepositScreen> {
         ));
   }
 
-  void _launchCheckout(TransactionPendingCheckout state) {
+  Future<void> _launchCheckout(TransactionPendingCheckout state) async {
     final name = (widget.member['full_name'] ?? '').split(' ');
     final firstName = name.isNotEmpty ? name.first : 'Member';
     final lastName = name.length > 1 ? name.last : '';
+    final email = widget.member['email'] ?? '';
 
-    final checkout = Checkout(
-      publicKey: PaymentConstants.intasendPublicKey,
-      amount: state.amount,
-      email: widget.member['email'] ?? '',
-      currency: PaymentConstants.currency,
-      firstName: firstName,
-      lastName: lastName,
+    // Create IntaSend checkout link
+    final response = await http.post(
+      Uri.parse('https://sandbox.intasend.com/api/v1/checkout/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${PaymentConstants.intasendPublicKey}',
+      },
+      body: jsonEncode({
+        'public_key': PaymentConstants.intasendPublicKey,
+        'currency': PaymentConstants.currency,
+        'amount': state.amount,
+        'email': email,
+        'first_name': firstName,
+        'last_name': lastName,
+        'api_ref': state.reference,
+        'redirect_url': 'https://omwasacco.app/payment/callback',
+      }),
     );
 
-    IntasendFlutter.initCheckout(
-      test: PaymentConstants.isSandbox,
-      checkout: checkout,
-      context: context,
-    ).then((response) {
-      final success = response != null;
-      // IntaSend returns the checkout object with id as invoice_id
-      final intasendRef = response?['id']?.toString() ??
-          response?['invoice_id']?.toString();
+    if (!mounted) return;
 
-      context.read<TransactionBloc>().add(DepositCompleted(
-            reference: state.reference,
-            memberId: state.memberId,
-            accountType: state.accountType,
-            amount: state.amount,
-            success: success,
-            intasendRef: intasendRef,
-          ));
-    }).catchError((_) {
-      context.read<TransactionBloc>().add(DepositCompleted(
-            reference: state.reference,
-            memberId: state.memberId,
-            accountType: state.accountType,
-            amount: state.amount,
-            success: false,
-          ));
-    });
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      final checkoutUrl = data['url'] as String?;
+      if (checkoutUrl != null) {
+        final result = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _IntaSendWebView(
+              url: checkoutUrl,
+              reference: state.reference,
+            ),
+          ),
+        );
+
+        if (mounted) {
+          context.read<TransactionBloc>().add(DepositCompleted(
+                reference: state.reference,
+                memberId: state.memberId,
+                accountType: state.accountType,
+                amount: state.amount,
+                success: result == true,
+                intasendRef: data['id']?.toString(),
+              ));
+        }
+      }
+    } else {
+      if (mounted) {
+        context.read<TransactionBloc>().add(DepositCompleted(
+              reference: state.reference,
+              memberId: state.memberId,
+              accountType: state.accountType,
+              amount: state.amount,
+              success: false,
+            ));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to create payment. Try again.'),
+          backgroundColor: Colors.redAccent,
+        ));
+      }
+    }
   }
 
   @override
@@ -92,7 +119,7 @@ class _DepositScreenState extends State<DepositScreen> {
             content: Text(state.message),
             backgroundColor: Colors.green,
           ));
-          Navigator.of(context).pop(true); // pop with true to trigger dashboard refresh
+          Navigator.of(context).pop(true);
         } else if (state is TransactionError) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),
@@ -115,8 +142,6 @@ class _DepositScreenState extends State<DepositScreen> {
                     Text('Deposit to Account',
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 24),
-
-                    // Account selector
                     Text('Select Account',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
@@ -144,8 +169,6 @@ class _DepositScreenState extends State<DepositScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Payment method
                     Text('Payment Method',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
@@ -173,8 +196,6 @@ class _DepositScreenState extends State<DepositScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Amount
                     Text('Amount (KES)',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
@@ -197,7 +218,6 @@ class _DepositScreenState extends State<DepositScreen> {
                       },
                     ),
                     const SizedBox(height: 32),
-
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -232,20 +252,69 @@ class _DepositScreenState extends State<DepositScreen> {
   }
 }
 
+class _IntaSendWebView extends StatefulWidget {
+  final String url;
+  final String reference;
+  const _IntaSendWebView({required this.url, required this.reference});
+
+  @override
+  State<_IntaSendWebView> createState() => _IntaSendWebViewState();
+}
+
+class _IntaSendWebViewState extends State<_IntaSendWebView> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) => setState(() => _loading = true),
+        onPageFinished: (_) => setState(() => _loading = false),
+        onNavigationRequest: (request) {
+          // Detect success redirect
+          if (request.url.contains('/payment/callback') ||
+              request.url.contains('omwasacco.app')) {
+            final success = request.url.contains('success') ||
+                !request.url.contains('failed');
+            Navigator.of(context).pop(success);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Complete Payment'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}
+
 class _AccountOption extends StatelessWidget {
-  final String label;
-  final String subtitle;
+  final String label, subtitle;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-
-  const _AccountOption({
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+  const _AccountOption({required this.label, required this.subtitle, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -258,22 +327,15 @@ class _AccountOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: selected ? cs.primary : Colors.transparent, width: 2),
+          border: Border.all(color: selected ? cs.primary : Colors.transparent, width: 2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: selected ? cs.primary : cs.onSurface, size: 24),
             const SizedBox(height: 6),
-            Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: selected ? cs.primary : cs.onSurface)),
-            Text(subtitle,
-                style: TextStyle(
-                    fontSize: 11,
-                    color: cs.onSurface.withValues(alpha: 0.6))),
+            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: selected ? cs.primary : cs.onSurface)),
+            Text(subtitle, style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.6))),
           ],
         ),
       ),
@@ -286,13 +348,7 @@ class _PaymentOption extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-
-  const _PaymentOption({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+  const _PaymentOption({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -305,17 +361,13 @@ class _PaymentOption extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: selected ? cs.primary : Colors.transparent, width: 2),
+          border: Border.all(color: selected ? cs.primary : Colors.transparent, width: 2),
         ),
         child: Row(
           children: [
             Icon(icon, color: selected ? cs.primary : cs.onSurface, size: 22),
             const SizedBox(width: 8),
-            Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: selected ? cs.primary : cs.onSurface)),
+            Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: selected ? cs.primary : cs.onSurface)),
           ],
         ),
       ),

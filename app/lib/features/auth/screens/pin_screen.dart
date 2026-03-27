@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
@@ -109,12 +108,20 @@ class _PinScreenState extends State<PinScreen> {
       },
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: const AuthHeader(),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height -
+                    MediaQuery.of(context).padding.top -
+                    MediaQuery.of(context).padding.bottom,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: AuthHeader(),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -221,7 +228,10 @@ class _PinScreenState extends State<PinScreen> {
                   ),
                 ),
               const SizedBox(height: 24),
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

@@ -19,10 +19,21 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       DepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
+      // Ensure session is valid
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(TransactionError('Session expired. Please log in again.'));
+        return;
+      }
+
+      debugPrint('[TRANSACTION] Session user: ${session.user.id}');
+      debugPrint('[TRANSACTION] Token (first 20): ${session.accessToken.substring(0, 20)}...');
+
       final response = await ConnectivityService.instance.guard(() async {
         return await _supabase.functions.invoke(
           'initiate-deposit',
           body: {'amount': event.amount},
+          headers: {'Authorization': 'Bearer ${session.accessToken}'},
         );
       });
 

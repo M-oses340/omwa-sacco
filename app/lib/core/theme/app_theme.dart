@@ -24,7 +24,6 @@ class AppTheme {
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           brightness: Brightness.light,
-          background: AppColors.lightBackground,
           surface: AppColors.lightSurface,
         ),
         scaffoldBackgroundColor: AppColors.lightBackground,
@@ -51,7 +50,6 @@ class AppTheme {
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           brightness: Brightness.dark,
-          background: AppColors.darkBackground,
           surface: AppColors.darkSurface,
         ),
         scaffoldBackgroundColor: AppColors.darkBackground,

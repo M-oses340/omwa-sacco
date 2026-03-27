@@ -106,12 +106,12 @@ class _DepositScreenState extends State<DepositScreen> {
                         border: Border.all(
                             color: const Color(0xFF00695C).withValues(alpha: 0.3)),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
-                          const Icon(Icons.account_balance_wallet,
+                          Icon(Icons.account_balance_wallet,
                               color: Color(0xFF00695C)),
-                          const SizedBox(width: 12),
-                          const Expanded(
+                          SizedBox(width: 12),
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

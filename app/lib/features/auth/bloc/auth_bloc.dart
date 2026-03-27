@@ -153,7 +153,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'status': 'active',
       });
 
-      debugPrint('[REGISTER] Member created successfully');
+      // Fetch the created member to get the id
+      final member = await _supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+      // Create BOSA account
+      await _supabase.from('bosa_accounts').insert({
+        'member_id': member['id'],
+        'account_number': 'BOSA-$memberNumber',
+        'savings_balance': 0.00,
+        'shares_balance': 0.00,
+      });
+
+      // Create FOSA account
+      await _supabase.from('fosa_accounts').insert({
+        'member_id': member['id'],
+        'account_number': 'FOSA-$memberNumber',
+        'balance': 0.00,
+      });
+
+      debugPrint('[REGISTER] Member and accounts created successfully');
       emit(AuthPinEntry(isNewUser: true));
     } on PostgrestException catch (e) {
       debugPrint('[REGISTER] PostgrestException: ${e.message}');

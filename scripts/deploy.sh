@@ -31,7 +31,7 @@ deploy_intasend_functions() {
       echo "  → Copying $func_name to supabase/functions/"
       cp -r "$dir" "$ROOT_DIR/supabase/functions/$func_name"
       echo "  → Deploying $func_name"
-      supabase functions deploy "$func_name" --project-ref "$PROJECT_REF"
+      supabase functions deploy "$func_name" --project-ref "$PROJECT_REF" --no-verify-jwt
       echo "  → Cleaning up temp copy"
       rm -rf "$ROOT_DIR/supabase/functions/$func_name"
     fi

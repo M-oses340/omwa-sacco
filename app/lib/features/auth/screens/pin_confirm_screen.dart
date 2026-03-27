@@ -65,9 +65,9 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: const AuthHeader(),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: AuthHeader(),
               ),
               const Spacer(),
               Center(

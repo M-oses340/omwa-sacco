@@ -1,23 +1,45 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
-
 const INTASEND_API_URL = 'https://sandbox.intasend.com/api/v1'
 const INTASEND_SECRET_KEY = Deno.env.get('INTASEND_SECRET_KEY')!
 
 Deno.serve(async (req) => {
   try {
-    // Get authenticated user
-    const authHeader = req.headers.get('Authorization')!
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    // Get JWT from Authorization header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
+
+    const jwt = authHeader.replace('Bearer ', '')
+
+    // Create client with user's JWT to respect RLS
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: `Bearer ${jwt}` } } }
+    )
+
+    // Service role client for writes that bypass RLS
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    if (authError || !user) {
+      console.error('[DEPOSIT] Auth error:', authError?.message)
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    console.log('[DEPOSIT] Authenticated user:', user.id)
 
     const { amount } = await req.json()
 
@@ -25,14 +47,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid amount' }), { status: 400 })
     }
 
-    // Fetch member record — phone number comes from DB, never from client
-    const { data: member, error: memberError } = await supabase
+    // Fetch member — phone comes from DB only
+    const { data: member, error: memberError } = await supabaseAdmin
       .from('members')
       .select('id, phone_number, status')
       .eq('user_id', user.id)
       .single()
 
     if (memberError || !member) {
+      console.error('[DEPOSIT] Member not found:', memberError?.message)
       return new Response(JSON.stringify({ error: 'Member not found' }), { status: 404 })
     }
 
@@ -41,18 +64,19 @@ Deno.serve(async (req) => {
     }
 
     // Fetch FOSA account
-    const { data: fosa, error: fosaError } = await supabase
+    const { data: fosa, error: fosaError } = await supabaseAdmin
       .from('fosa_accounts')
       .select('id, account_number, balance')
       .eq('member_id', member.id)
       .single()
 
     if (fosaError || !fosa) {
+      console.error('[DEPOSIT] FOSA not found:', fosaError?.message)
       return new Response(JSON.stringify({ error: 'FOSA account not found' }), { status: 404 })
     }
 
     // Create pending transaction
-    const { data: transaction, error: txError } = await supabase
+    const { data: transaction, error: txError } = await supabaseAdmin
       .from('transactions')
       .insert({
         member_id: member.id,
@@ -60,15 +84,18 @@ Deno.serve(async (req) => {
         transaction_type: 'deposit',
         amount: amount,
         balance_before: fosa.balance,
-        description: 'FOSA deposit via M-Pesa',
+        description: 'FOSA deposit via M-Pesa STK Push',
         status: 'pending',
       })
       .select('id')
       .single()
 
     if (txError || !transaction) {
+      console.error('[DEPOSIT] Transaction insert error:', txError?.message)
       return new Response(JSON.stringify({ error: 'Failed to create transaction' }), { status: 500 })
     }
+
+    console.log('[DEPOSIT] Transaction created:', transaction.id)
 
     // Initiate STK Push via IntaSend
     const stkResponse = await fetch(`${INTASEND_API_URL}/payment/mpesa-stk-push/`, {
@@ -86,15 +113,15 @@ Deno.serve(async (req) => {
     })
 
     const stkData = await stkResponse.json()
+    console.log('[DEPOSIT] IntaSend response:', JSON.stringify(stkData))
 
     if (!stkResponse.ok) {
-      // Mark transaction as failed
-      await supabase.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
-      return new Response(JSON.stringify({ error: stkData.detail || 'STK push failed' }), { status: 400 })
+      await supabaseAdmin.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
+      return new Response(JSON.stringify({ error: stkData.detail || stkData.message || 'STK push failed' }), { status: 400 })
     }
 
     // Update transaction with IntaSend reference
-    await supabase.from('transactions')
+    await supabaseAdmin.from('transactions')
       .update({ intasend_ref: stkData.invoice?.invoice_id })
       .eq('id', transaction.id)
 
@@ -108,6 +135,7 @@ Deno.serve(async (req) => {
     })
 
   } catch (error) {
+    console.error('[DEPOSIT] Unexpected error:', error.message)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

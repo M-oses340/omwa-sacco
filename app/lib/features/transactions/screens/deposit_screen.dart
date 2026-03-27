@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../bloc/transaction_bloc.dart';
 
 class DepositScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class DepositScreen extends StatefulWidget {
 class _DepositScreenState extends State<DepositScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  String _method = 'mpesa';
   Timer? _pollTimer;
 
   @override
@@ -29,12 +31,12 @@ class _DepositScreenState extends State<DepositScreen> {
     context.read<TransactionBloc>().add(DepositInitiated(
           memberId: widget.member['id'],
           amount: amount,
+          method: _method,
         ));
   }
 
   void _startPolling(String transactionId) {
     _pollTimer?.cancel();
-    // Poll every 5 seconds for up to 2 minutes
     int attempts = 0;
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       attempts++;
@@ -46,17 +48,21 @@ class _DepositScreenState extends State<DepositScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  String get _maskedPhone {
     final phone = widget.member['phone_number'] ?? '';
-    final maskedPhone = phone.length >= 9
+    return phone.length >= 9
         ? '${phone.substring(0, 4)}****${phone.substring(phone.length - 3)}'
         : phone;
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return BlocListener<TransactionBloc, TransactionState>(
       listener: (context, state) {
         if (state is TransactionStkPushSent) {
           _startPolling(state.transactionId);
+        } else if (state is TransactionBankCheckoutReady) {
+          _openBankCheckout(state);
         } else if (state is TransactionSuccess) {
           _pollTimer?.cancel();
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -76,11 +82,10 @@ class _DepositScreenState extends State<DepositScreen> {
         appBar: AppBar(title: const Text('Deposit to FOSA')),
         body: BlocBuilder<TransactionBloc, TransactionState>(
           builder: (context, state) {
-            // STK push sent — show waiting screen
             if (state is TransactionStkPushSent) {
-              return _StkPushWaitingView(
+              return _StkWaitingView(
                 amount: state.amount,
-                maskedPhone: maskedPhone,
+                maskedPhone: _maskedPhone,
                 onCancel: () {
                   _pollTimer?.cancel();
                   Navigator.of(context).pop(false);
@@ -97,11 +102,11 @@ class _DepositScreenState extends State<DepositScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Info card
+                    // FOSA info
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00695C).withValues(alpha: 0.1),
+                        color: const Color(0xFF00695C).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                             color: const Color(0xFF00695C).withValues(alpha: 0.3)),
@@ -129,42 +134,44 @@ class _DepositScreenState extends State<DepositScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // M-Pesa phone info
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: Colors.green.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.phone_android, color: Colors.green),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('M-Pesa STK Push',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green)),
-                              Text('PIN prompt will be sent to $maskedPhone',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.black54)),
-                            ],
+                    // Payment method selector
+                    Text('Payment Method',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _MethodCard(
+                            icon: Icons.phone_android,
+                            label: 'M-Pesa',
+                            subtitle: 'STK Push to $_maskedPhone',
+                            color: Colors.green,
+                            selected: _method == 'mpesa',
+                            onTap: () => setState(() => _method = 'mpesa'),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _MethodCard(
+                            icon: Icons.credit_card,
+                            label: 'Bank / Card',
+                            subtitle: 'Pay via card or bank transfer',
+                            color: Colors.blue,
+                            selected: _method == 'bank',
+                            onTap: () => setState(() => _method = 'bank'),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
+                    // Amount
                     Text('Amount (KES)',
                         style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
                         hintText: '0.00',
                         prefixText: 'KES ',
@@ -191,16 +198,26 @@ class _DepositScreenState extends State<DepositScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                     color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.phone_android,
+                            : Icon(
+                                _method == 'mpesa'
+                                    ? Icons.phone_android
+                                    : Icons.credit_card,
                                 color: Colors.white),
                         label: Text(
-                            isLoading ? 'Sending...' : 'Pay via M-Pesa',
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                          isLoading
+                              ? 'Processing...'
+                              : _method == 'mpesa'
+                                  ? 'Pay via M-Pesa'
+                                  : 'Pay via Bank / Card',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white),
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: _method == 'mpesa'
+                              ? Colors.green
+                              : Colors.blue,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12)),
                         ),
@@ -215,14 +232,83 @@ class _DepositScreenState extends State<DepositScreen> {
       ),
     );
   }
+
+  Future<void> _openBankCheckout(TransactionBankCheckoutReady state) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _BankCheckoutWebView(
+          url: state.checkoutUrl,
+          transactionId: state.transactionId,
+        ),
+      ),
+    );
+    if (mounted) {
+      context.read<TransactionBloc>().add(BankCheckoutCompleted(
+            transactionId: state.transactionId,
+            success: result == true,
+          ));
+    }
+  }
 }
 
-class _StkPushWaitingView extends StatelessWidget {
+class _MethodCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _MethodCard({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: selected ? color : Colors.transparent, width: 2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: selected ? color : Colors.grey, size: 28),
+            const SizedBox(height: 8),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: selected ? color : Colors.black87)),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StkWaitingView extends StatelessWidget {
   final double amount;
   final String maskedPhone;
   final VoidCallback onCancel;
 
-  const _StkPushWaitingView({
+  const _StkWaitingView({
     required this.amount,
     required this.maskedPhone,
     required this.onCancel,
@@ -241,7 +327,8 @@ class _StkPushWaitingView extends StatelessWidget {
             const Icon(Icons.phone_android, size: 64, color: Colors.green),
             const SizedBox(height: 16),
             const Text('Check your phone',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                style:
+                    TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Text(
               'An M-Pesa prompt has been sent to $maskedPhone.\nEnter your M-Pesa PIN to complete the deposit of KES ${amount.toStringAsFixed(2)}.',
@@ -251,10 +338,68 @@ class _StkPushWaitingView extends StatelessWidget {
             const SizedBox(height: 40),
             TextButton(
               onPressed: onCancel,
-              child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.red)),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BankCheckoutWebView extends StatefulWidget {
+  final String url;
+  final String transactionId;
+
+  const _BankCheckoutWebView(
+      {required this.url, required this.transactionId});
+
+  @override
+  State<_BankCheckoutWebView> createState() => _BankCheckoutWebViewState();
+}
+
+class _BankCheckoutWebViewState extends State<_BankCheckoutWebView> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) => setState(() => _loading = true),
+        onPageFinished: (_) => setState(() => _loading = false),
+        onNavigationRequest: (request) {
+          if (request.url.contains('omwasacco.app/payment') ||
+              request.url.contains('payment/callback')) {
+            final success = !request.url.contains('failed') &&
+                !request.url.contains('cancelled');
+            Navigator.of(context).pop(success);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
+      ))
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Bank / Card Payment'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading) const Center(child: CircularProgressIndicator()),
+        ],
       ),
     );
   }

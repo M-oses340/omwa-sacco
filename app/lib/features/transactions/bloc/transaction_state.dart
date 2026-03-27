@@ -19,6 +19,19 @@ class TransactionStkPushSent extends TransactionState {
   });
 }
 
+// Bank checkout URL ready — open in WebView
+class TransactionBankCheckoutReady extends TransactionState {
+  final String checkoutUrl;
+  final String transactionId;
+  final double amount;
+
+  TransactionBankCheckoutReady({
+    required this.checkoutUrl,
+    required this.transactionId,
+    required this.amount,
+  });
+}
+
 class TransactionSuccess extends TransactionState {
   final String message;
   TransactionSuccess(this.message);

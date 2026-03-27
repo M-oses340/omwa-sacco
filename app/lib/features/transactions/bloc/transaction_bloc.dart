@@ -12,14 +12,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   TransactionBloc() : super(TransactionInitial()) {
     on<DepositInitiated>(_onDepositInitiated);
     on<DepositStatusChecked>(_onDepositStatusChecked);
+    on<BankCheckoutCompleted>(_onBankCheckoutCompleted);
   }
 
-  /// Calls the initiate-deposit edge function which triggers STK push
   Future<void> _onDepositInitiated(
       DepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      // Ensure session is valid
       final session = _supabase.auth.currentSession;
       if (session == null) {
         emit(TransactionError('Session expired. Please log in again.'));
@@ -28,10 +27,15 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
       debugPrint('[TRANSACTION] Session user: ${session.user.id}');
       debugPrint('[TRANSACTION] Token (first 20): ${session.accessToken.substring(0, 20)}...');
+      debugPrint('[TRANSACTION] Method: ${event.method}');
+
+      final functionName = event.method == 'bank'
+          ? 'initiate-bank-deposit'
+          : 'initiate-deposit';
 
       final response = await ConnectivityService.instance.guard(() async {
         return await _supabase.functions.invoke(
-          'initiate-deposit',
+          functionName,
           body: {'amount': event.amount},
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         );
@@ -40,11 +44,19 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final data = response.data as Map<String, dynamic>;
 
       if (data['success'] == true) {
-        emit(TransactionStkPushSent(
-          transactionId: data['transaction_id'],
-          invoiceId: data['invoice_id'] ?? '',
-          amount: event.amount,
-        ));
+        if (event.method == 'bank') {
+          emit(TransactionBankCheckoutReady(
+            checkoutUrl: data['checkout_url'],
+            transactionId: data['transaction_id'],
+            amount: event.amount,
+          ));
+        } else {
+          emit(TransactionStkPushSent(
+            transactionId: data['transaction_id'],
+            invoiceId: data['invoice_id'] ?? '',
+            amount: event.amount,
+          ));
+        }
       } else {
         emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
       }
@@ -57,7 +69,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
-  /// Poll transaction status after STK push
   Future<void> _onDepositStatusChecked(
       DepositStatusChecked event, Emitter<TransactionState> emit) async {
     try {
@@ -76,9 +87,35 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       } else if (status == 'failed') {
         emit(TransactionError('Payment failed. Please try again.'));
       }
-      // if still pending, stay in StkPushSent state — user keeps waiting
     } catch (e) {
       debugPrint('[TRANSACTION] Status check error: $e');
+    }
+  }
+
+  Future<void> _onBankCheckoutCompleted(
+      BankCheckoutCompleted event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      if (event.success) {
+        // Webhook will handle the actual credit — just check status
+        final tx = await _supabase
+            .from('transactions')
+            .select('status, amount')
+            .eq('id', event.transactionId)
+            .single();
+
+        final amount = double.tryParse(tx['amount'].toString()) ?? 0;
+        emit(TransactionSuccess(
+            'Deposit of KES ${amount.toStringAsFixed(2)} is being processed'));
+      } else {
+        await _supabase
+            .from('transactions')
+            .update({'status': 'failed'})
+            .eq('id', event.transactionId);
+        emit(TransactionError('Payment was cancelled'));
+      }
+    } catch (e) {
+      emit(TransactionError(e.toString()));
     }
   }
 }

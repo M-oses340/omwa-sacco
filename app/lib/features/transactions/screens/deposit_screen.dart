@@ -1,7 +1,6 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import '../bloc/transaction_bloc.dart';
 import '../../../core/constants/payment_constants.dart';
@@ -29,6 +28,12 @@ class _DepositScreenState extends State<DepositScreen> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.parse(_amountController.text.trim());
+    debugPrint('[DEPOSIT] Proceed to payment pressed');
+    debugPrint('[DEPOSIT] Account type: $_accountType');
+    debugPrint('[DEPOSIT] Payment method: $_paymentMethod');
+    debugPrint('[DEPOSIT] Amount: $amount');
+    debugPrint('[DEPOSIT] Member ID: ${widget.member['id']}');
+    debugPrint('[DEPOSIT] Member email: ${widget.member['email']}');
     context.read<TransactionBloc>().add(DepositInitiated(
           memberId: widget.member['id'],
           accountType: _accountType,
@@ -39,70 +44,45 @@ class _DepositScreenState extends State<DepositScreen> {
 
   Future<void> _launchCheckout(TransactionPendingCheckout state) async {
     final name = (widget.member['full_name'] ?? '').split(' ');
-    final firstName = name.isNotEmpty ? name.first : 'Member';
-    final lastName = name.length > 1 ? name.last : '';
-    final email = widget.member['email'] ?? '';
+    final firstName = Uri.encodeComponent(name.isNotEmpty ? name.first : 'Member');
+    final lastName = Uri.encodeComponent(name.length > 1 ? name.last : '');
+    final email = Uri.encodeComponent(widget.member['email'] ?? '');
+    final phone = Uri.encodeComponent(widget.member['phone_number'] ?? '');
 
-    // Create IntaSend checkout link
-    final response = await http.post(
-      Uri.parse('https://sandbox.intasend.com/api/v1/checkout/'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${PaymentConstants.intasendPublicKey}',
-      },
-      body: jsonEncode({
-        'public_key': PaymentConstants.intasendPublicKey,
-        'currency': PaymentConstants.currency,
-        'amount': state.amount,
-        'email': email,
-        'first_name': firstName,
-        'last_name': lastName,
-        'api_ref': state.reference,
-        'redirect_url': 'https://omwasacco.app/payment/callback',
-      }),
-    );
+    // Build IntaSend hosted checkout URL directly (no API call needed)
+    final checkoutUrl = 'https://sandbox.intasend.com/pay/host/'
+        '?public_key=${PaymentConstants.intasendPublicKey}'
+        '&amount=${state.amount}'
+        '&currency=${PaymentConstants.currency}'
+        '&email=$email'
+        '&first_name=$firstName'
+        '&last_name=$lastName'
+        '&phone_number=$phone'
+        '&api_ref=${state.reference}'
+        '&redirect_url=https://omwasacco.app/payment/callback';
+
+    debugPrint('[DEPOSIT] Opening checkout URL: $checkoutUrl');
 
     if (!mounted) return;
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      final checkoutUrl = data['url'] as String?;
-      if (checkoutUrl != null) {
-        final result = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => _IntaSendWebView(
-              url: checkoutUrl,
-              reference: state.reference,
-            ),
-          ),
-        );
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _IntaSendWebView(
+          url: checkoutUrl,
+          reference: state.reference,
+        ),
+      ),
+    );
 
-        if (mounted) {
-          context.read<TransactionBloc>().add(DepositCompleted(
-                reference: state.reference,
-                memberId: state.memberId,
-                accountType: state.accountType,
-                amount: state.amount,
-                success: result == true,
-                intasendRef: data['id']?.toString(),
-              ));
-        }
-      }
-    } else {
-      if (mounted) {
-        context.read<TransactionBloc>().add(DepositCompleted(
-              reference: state.reference,
-              memberId: state.memberId,
-              accountType: state.accountType,
-              amount: state.amount,
-              success: false,
-            ));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to create payment. Try again.'),
-          backgroundColor: Colors.redAccent,
-        ));
-      }
+    if (mounted) {
+      context.read<TransactionBloc>().add(DepositCompleted(
+            reference: state.reference,
+            memberId: state.memberId,
+            accountType: state.accountType,
+            amount: state.amount,
+            success: result == true,
+          ));
     }
   }
 

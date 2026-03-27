@@ -11,37 +11,45 @@ Deno.serve(async (req) => {
     const { invoice_id, state, net_amount, api_ref, mpesa_code } = payload
 
     // api_ref format: "memberId:accountType:transactionId"
-    const [memberId, accountType, transactionId] = (api_ref ?? '').split(':')
+    const parts = (api_ref ?? '').split(':')
+    if (parts.length !== 3) {
+      return new Response(JSON.stringify({ error: 'Invalid api_ref' }), { status: 400 })
+    }
+
+    const [memberId, accountType, transactionId] = parts
+    const amount = parseFloat(net_amount)
 
     if (state === 'COMPLETE') {
-      // Update transaction status
+      // Fetch current balance
+      const { data: fosa } = await supabase
+        .from('fosa_accounts')
+        .select('balance')
+        .eq('member_id', memberId)
+        .single()
+
+      if (!fosa) {
+        return new Response(JSON.stringify({ error: 'Account not found' }), { status: 404 })
+      }
+
+      const newBalance = (fosa.balance ?? 0) + amount
+
+      // Credit FOSA account
+      await supabase
+        .from('fosa_accounts')
+        .update({ balance: newBalance })
+        .eq('member_id', memberId)
+
+      // Update transaction to completed
       await supabase
         .from('transactions')
         .update({
           status: 'completed',
+          balance_after: newBalance,
           intasend_ref: invoice_id,
           mpesa_ref: mpesa_code,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', transactionId)
 
-      // Credit the account
-      const table = accountType === 'fosa' ? 'fosa_accounts' : 'bosa_accounts'
-      const balanceField = accountType === 'fosa' ? 'balance' : 'savings_balance'
-
-      const { data: account } = await supabase
-        .from(table)
-        .select(balanceField)
-        .eq('member_id', memberId)
-        .single()
-
-      if (account) {
-        const newBalance = (account[balanceField] ?? 0) + parseFloat(net_amount)
-        await supabase
-          .from(table)
-          .update({ [balanceField]: newBalance })
-          .eq('member_id', memberId)
-      }
     } else if (state === 'FAILED') {
       await supabase
         .from('transactions')
@@ -52,6 +60,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
     })
+
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

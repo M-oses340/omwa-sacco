@@ -19,6 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _fosa;
   List<Map<String, dynamic>> _transactions = [];
   bool _loading = true;
+  bool _balanceVisible = true;
 
   @override
   void initState() {
@@ -131,6 +132,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           children: [
                             IconButton(
+                              icon: Icon(
+                                _balanceVisible
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: cs.onPrimary),
+                              onPressed: () => setState(
+                                  () => _balanceVisible = !_balanceVisible),
+                            ),
+                            IconButton(
                               icon: Icon(Icons.notifications_outlined,
                                   color: cs.onPrimary),
                               onPressed: () {},
@@ -207,6 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   shares: _bosa?['shares_balance'],
                                   accountNumber: _bosa?['account_number'],
                                   color: AppColors.primary,
+                                  balanceVisible: _balanceVisible,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -217,6 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   balance: _fosa?['balance'],
                                   accountNumber: _fosa?['account_number'],
                                   color: const Color(0xFF00695C),
+                                  balanceVisible: _balanceVisible,
                                 ),
                               ),
                             ],
@@ -326,6 +338,7 @@ class _AccountCard extends StatelessWidget {
   final dynamic balance, shares;
   final String? accountNumber;
   final Color color;
+  final bool balanceVisible;
 
   const _AccountCard({
     required this.title,
@@ -334,6 +347,7 @@ class _AccountCard extends StatelessWidget {
     this.shares,
     this.accountNumber,
     required this.color,
+    this.balanceVisible = true,
   });
 
   String _fmt(dynamic val) =>
@@ -361,18 +375,24 @@ class _AccountCard extends StatelessWidget {
           if (balance != null) ...[
             const Text('Balance',
                 style: TextStyle(color: Colors.white60, fontSize: 11)),
-            Text('KES ${_fmt(balance)}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              balanceVisible ? 'KES ${_fmt(balance)}' : 'KES ••••••',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
+            ),
           ] else
             const Text('No account',
                 style: TextStyle(color: Colors.white54, fontSize: 13)),
           if (shares != null) ...[
             const SizedBox(height: 4),
-            Text('Shares: KES ${_fmt(shares)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(
+              balanceVisible
+                  ? 'Shares: KES ${_fmt(shares)}'
+                  : 'Shares: KES ••••',
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
           ],
           if (accountNumber != null) ...[
             const SizedBox(height: 6),

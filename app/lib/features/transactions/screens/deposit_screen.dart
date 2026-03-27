@@ -1,7 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../bloc/transaction_bloc.dart';
+
+void _showSuccessDialog(BuildContext context, String message) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle,
+                  color: Colors.green, size: 48),
+            )
+                .animate()
+                .scale(duration: 400.ms, curve: Curves.elasticOut),
+            const SizedBox(height: 16),
+            const Text('Payment Submitted',
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Done'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 Future<bool?> showDepositSheet(
     BuildContext context, Map<String, dynamic> member) {
@@ -69,10 +116,7 @@ class _DepositSheetState extends State<_DepositSheet> {
           _openCheckout(state);
         } else if (state is TransactionSuccess) {
           Navigator.of(context).pop(true);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(state.message),
-            backgroundColor: Colors.green,
-          ));
+          _showSuccessDialog(context, state.message);
         } else if (state is TransactionError) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),

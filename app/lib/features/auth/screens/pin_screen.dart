@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
 import '../bloc/auth_bloc.dart';
@@ -71,6 +72,7 @@ class _PinScreenState extends State<PinScreen> {
   void _onKeyTap(String key) {
     if (_isLoading) return;
     if (_pin.length < _pinLength) {
+      HapticFeedback.lightImpact();
       setState(() => _pin.add(key));
       if (_pin.length == _pinLength) _submitPin();
     }
@@ -78,7 +80,10 @@ class _PinScreenState extends State<PinScreen> {
 
   void _onDelete() {
     if (_isLoading) return;
-    if (_pin.isNotEmpty) setState(() => _pin.removeLast());
+    if (_pin.isNotEmpty) {
+      HapticFeedback.lightImpact();
+      setState(() => _pin.removeLast());
+    }
   }
 
   void _submitPin() {

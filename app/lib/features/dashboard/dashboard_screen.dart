@@ -175,10 +175,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text('Hello, $firstName 👋',
                                 style: TextStyle(
-                                    color: cs.onPrimary.withValues(alpha: 0.8),
-                                    fontSize: 13)),
-                            Text(name,
-                                style: TextStyle(
                                     color: cs.onPrimary,
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold)),

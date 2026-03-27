@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
+import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/welcome_screen.dart';
 import '../../features/auth/screens/phone_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
@@ -29,9 +30,7 @@ class AppShell extends StatelessWidget {
         },
         builder: (context, state) {
           if (state is AuthLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const SplashScreen();
           }
           if (state is AuthPhoneEntry) {
             return const PhoneScreen();
@@ -40,7 +39,7 @@ class AppShell extends StatelessWidget {
             return OtpScreen(phone: state.phone);
           }
           if (state is AuthPinEntry) {
-            return PinScreen(isNewUser: state.isNewUser);
+            return PinScreen(isNewUser: state.isNewUser, memberName: state.memberName);
           }
           if (state is AuthPinConfirm) {
             return PinConfirmScreen(firstPin: state.firstPin);
@@ -51,7 +50,6 @@ class AppShell extends StatelessWidget {
           if (state is AuthAuthenticated) {
             return DashboardScreen(member: state.member);
           }
-          // Default: welcome screen
           return const WelcomeScreen();
         },
       ),

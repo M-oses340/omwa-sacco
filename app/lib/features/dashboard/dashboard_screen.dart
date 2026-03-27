@@ -30,7 +30,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final supabase = Supabase.instance.client;
       final memberId = widget.member['id'];
-
       final results = await ConnectivityService.instance.guard(() => Future.wait([
             supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
             supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
@@ -41,7 +40,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 .order('created_at', ascending: false)
                 .limit(5),
           ]));
-
       setState(() {
         _bosa = results[0] as Map<String, dynamic>?;
         _fosa = results[1] as Map<String, dynamic>?;
@@ -59,10 +57,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Widget _buildSkeleton() {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+              const SizedBox(width: 12),
+              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...List.generate(4, (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _SkeletonBox(height: 64, cs: cs),
+          )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final name = widget.member['full_name'] ?? 'Member';
     final memberNumber = widget.member['member_number'] ?? '';
+    final firstName = name.split(' ').first;
 
     return Scaffold(
       body: Column(
@@ -70,7 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Header
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: cs.primary,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
@@ -90,16 +114,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: cs.onPrimary.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.account_balance,
-                                  color: Colors.white, size: 22),
+                              child: Icon(Icons.account_balance,
+                                  color: cs.onPrimary, size: 22),
                             ),
                             const SizedBox(width: 8),
-                            const Text('Omwa Sacco',
+                            Text('Omwa Sacco',
                                 style: TextStyle(
-                                    color: Colors.white,
+                                    color: cs.onPrimary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold)),
                           ],
@@ -107,12 +131,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Row(
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.notifications_outlined,
-                                  color: Colors.white),
+                              icon: Icon(Icons.notifications_outlined,
+                                  color: cs.onPrimary),
                               onPressed: () {},
                             ),
                             IconButton(
-                              icon: const Icon(Icons.logout, color: Colors.white),
+                              icon: Icon(Icons.logout, color: cs.onPrimary),
                               onPressed: () => context
                                   .read<AuthBloc>()
                                   .add(AuthLogoutRequested()),
@@ -126,11 +150,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         CircleAvatar(
                           radius: 28,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
                           child: Text(
                             name.isNotEmpty ? name[0].toUpperCase() : 'M',
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: cs.onPrimary,
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold),
                           ),
@@ -139,17 +163,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Hello, ${name.split(' ').first}',
-                                style: const TextStyle(
-                                    color: Colors.white70, fontSize: 13)),
+                            Text('Hello, $firstName 👋',
+                                style: TextStyle(
+                                    color: cs.onPrimary.withValues(alpha: 0.8),
+                                    fontSize: 13)),
                             Text(name,
-                                style: const TextStyle(
-                                    color: Colors.white,
+                                style: TextStyle(
+                                    color: cs.onPrimary,
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold)),
                             Text('Member #$memberNumber',
-                                style: const TextStyle(
-                                    color: Colors.white60, fontSize: 12)),
+                                style: TextStyle(
+                                    color: cs.onPrimary.withValues(alpha: 0.6),
+                                    fontSize: 12)),
                           ],
                         ),
                       ],
@@ -159,10 +185,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? _buildSkeleton()
                 : RefreshIndicator(
                     onRefresh: _loadData,
                     child: SingleChildScrollView(
@@ -172,14 +197,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 8),
-                          // Account cards
                           Row(
                             children: [
                               Expanded(
                                 child: _AccountCard(
                                   title: 'BOSA',
                                   subtitle: 'Savings & Shares',
-                                  savings: _bosa?['savings_balance'],
+                                  balance: _bosa?['savings_balance'],
                                   shares: _bosa?['shares_balance'],
                                   accountNumber: _bosa?['account_number'],
                                   color: AppColors.primary,
@@ -190,7 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: _AccountCard(
                                   title: 'FOSA',
                                   subtitle: 'Current Account',
-                                  savings: _fosa?['balance'],
+                                  balance: _fosa?['balance'],
                                   accountNumber: _fosa?['account_number'],
                                   color: const Color(0xFF00695C),
                                 ),
@@ -198,10 +222,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // Quick actions
-                          const Text('Quick Actions',
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                          Text('Quick Actions',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -233,14 +258,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ],
                           ),
                           const SizedBox(height: 20),
-                          // Recent transactions
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Recent Transactions',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600)),
+                              Text('Recent Transactions',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600)),
                               TextButton(
                                 onPressed: () {},
                                 child: const Text('See all'),
@@ -249,15 +274,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(height: 8),
                           if (_transactions.isEmpty)
-                            const Center(
+                            Center(
                               child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Text('No transactions yet',
-                                    style: TextStyle(color: Colors.grey)),
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.receipt_long_outlined,
+                                        size: 48,
+                                        color: Colors.grey.shade400),
+                                    const SizedBox(height: 8),
+                                    Text('No transactions yet',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade500)),
+                                  ],
+                                ),
                               ),
                             )
                           else
-                            ..._transactions.map((tx) => _TransactionTile(tx: tx)),
+                            ..._transactions
+                                .map((tx) => _TransactionTile(tx: tx)),
                         ],
                       ),
                     ),
@@ -269,22 +304,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class _SkeletonBox extends StatelessWidget {
+  final double height;
+  final ColorScheme cs;
+  const _SkeletonBox({required this.height, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+    );
+  }
+}
+
 class _AccountCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final dynamic savings;
-  final dynamic shares;
+  final String title, subtitle;
+  final dynamic balance, shares;
   final String? accountNumber;
   final Color color;
 
   const _AccountCard({
     required this.title,
     required this.subtitle,
-    this.savings,
+    this.balance,
     this.shares,
     this.accountNumber,
     required this.color,
   });
+
+  String _fmt(dynamic val) =>
+      double.tryParse(val.toString())?.toStringAsFixed(2) ?? '0.00';
 
   @override
   Widget build(BuildContext context) {
@@ -305,15 +358,14 @@ class _AccountCard extends StatelessWidget {
           Text(subtitle,
               style: const TextStyle(color: Colors.white70, fontSize: 11)),
           const SizedBox(height: 12),
-          if (savings != null) ...[
-            const Text('Balance', style: TextStyle(color: Colors.white60, fontSize: 11)),
-            Text(
-              'KES ${_fmt(savings)}',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
+          if (balance != null) ...[
+            const Text('Balance',
+                style: TextStyle(color: Colors.white60, fontSize: 11)),
+            Text('KES ${_fmt(balance)}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
           ] else
             const Text('No account',
                 style: TextStyle(color: Colors.white54, fontSize: 13)),
@@ -330,11 +382,6 @@ class _AccountCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _fmt(dynamic val) {
-    if (val == null) return '0.00';
-    return double.tryParse(val.toString())?.toStringAsFixed(2) ?? '0.00';
   }
 }
 
@@ -377,13 +424,29 @@ class _TransactionTile extends StatelessWidget {
   final Map<String, dynamic> tx;
   const _TransactionTile({required this.tx});
 
+  String _friendlyLabel(String type) {
+    const labels = {
+      'deposit': 'Deposit',
+      'withdrawal': 'Withdrawal',
+      'transfer': 'Transfer',
+      'loan_disbursement': 'Loan Disbursement',
+      'loan_repayment': 'Loan Repayment',
+      'dividend': 'Dividend',
+      'share_purchase': 'Share Purchase',
+    };
+    return labels[type] ?? type.replaceAll('_', ' ').toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final type = tx['transaction_type'] ?? '';
+    final accountType = (tx['account_type'] ?? '').toString().toUpperCase();
     final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-    final isCredit = ['deposit', 'loan_disbursement', 'dividend'].contains(type);
+    final isCredit =
+        ['deposit', 'loan_disbursement', 'dividend'].contains(type);
     final date = DateTime.tryParse(tx['created_at'] ?? '');
+    final status = tx['status'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -400,12 +463,12 @@ class _TransactionTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: isCredit
                   ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.red.withValues(alpha: 0.1),
+                  : Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-              color: isCredit ? Colors.green : Colors.red,
+              color: isCredit ? Colors.green : Colors.orange,
               size: 20,
             ),
           ),
@@ -414,26 +477,49 @@ class _TransactionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  type.replaceAll('_', ' ').toUpperCase(),
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600),
+                Text(_friendlyLabel(type),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Text(accountType,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.primary,
+                            fontWeight: FontWeight.w500)),
+                    if (date != null) ...[
+                      Text(' · ',
+                          style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.4))),
+                      Text(
+                        '${date.day}/${date.month}/${date.year}',
+                        style: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                            fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
-                if (date != null)
-                  Text(
-                    '${date.day}/${date.month}/${date.year}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
               ],
             ),
           ),
-          Text(
-            '${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: isCredit ? Colors.green : Colors.red,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: isCredit ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              if (status == 'pending')
+                Text('Pending',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.orange.shade700)),
+            ],
           ),
         ],
       ),

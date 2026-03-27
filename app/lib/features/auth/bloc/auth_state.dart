@@ -15,7 +15,8 @@ class AuthOtpEntry extends AuthState {
 
 class AuthPinEntry extends AuthState {
   final bool isNewUser;
-  AuthPinEntry({this.isNewUser = false});
+  final String? memberName;
+  AuthPinEntry({this.isNewUser = false, this.memberName});
 }
 
 class AuthPinConfirm extends AuthState {

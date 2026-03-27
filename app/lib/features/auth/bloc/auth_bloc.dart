@@ -106,9 +106,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final storedPin = await _storage.read(key: 'user_pin_${response.user!.id}');
         debugPrint('[AUTH] Stored PIN exists: ${storedPin != null}');
         if (storedPin == null) {
-          emit(AuthPinEntry(isNewUser: true));
+          emit(AuthPinEntry(isNewUser: true, memberName: memberData['full_name']));
         } else {
-          emit(AuthPinEntry(isNewUser: false));
+          emit(AuthPinEntry(isNewUser: false, memberName: memberData['full_name']));
         }
       }
     } on AuthException catch (e) {

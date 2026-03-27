@@ -6,7 +6,8 @@ import '../widgets/auth_header.dart';
 
 class PinScreen extends StatefulWidget {
   final bool isNewUser;
-  const PinScreen({super.key, this.isNewUser = false});
+  final String? memberName;
+  const PinScreen({super.key, this.isNewUser = false, this.memberName});
 
   @override
   State<PinScreen> createState() => _PinScreenState();
@@ -33,7 +34,12 @@ class _PinScreenState extends State<PinScreen> {
     debugPrint('[BIOMETRIC] isDeviceSupported: $isSupported');
     debugPrint('[BIOMETRIC] availableBiometrics: $available');
     if (mounted) setState(() => _biometricAvailable = canCheck && isSupported);
-    if (!widget.isNewUser && _biometricAvailable) _tryBiometric();
+    // Only auto-trigger biometric for returning users, not new users
+    if (!widget.isNewUser && _biometricAvailable) {
+      // Small delay so screen renders first
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) _tryBiometric();
+    }
   }
 
   Future<void> _tryBiometric() async {
@@ -131,6 +137,15 @@ class _PinScreenState extends State<PinScreen> {
                         .headlineMedium
                         ?.copyWith(fontWeight: FontWeight.w300)),
               ),
+              if (widget.memberName != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    widget.memberName!.split(' ').first,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
               const Spacer(),
               Center(
                 child: Text(

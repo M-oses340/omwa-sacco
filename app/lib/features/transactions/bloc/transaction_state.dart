@@ -6,17 +6,16 @@ class TransactionInitial extends TransactionState {}
 
 class TransactionLoading extends TransactionState {}
 
-class TransactionPendingCheckout extends TransactionState {
-  final String reference;
+// STK push sent — waiting for member to enter M-Pesa PIN
+class TransactionStkPushSent extends TransactionState {
+  final String transactionId;
+  final String invoiceId;
   final double amount;
-  final String accountType;
-  final String memberId;
 
-  TransactionPendingCheckout({
-    required this.reference,
+  TransactionStkPushSent({
+    required this.transactionId,
+    required this.invoiceId,
     required this.amount,
-    required this.accountType,
-    required this.memberId,
   });
 }
 

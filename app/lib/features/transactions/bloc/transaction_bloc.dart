@@ -11,104 +11,63 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   TransactionBloc() : super(TransactionInitial()) {
     on<DepositInitiated>(_onDepositInitiated);
-    on<DepositCompleted>(_onDepositCompleted);
+    on<DepositStatusChecked>(_onDepositStatusChecked);
   }
 
-  /// Creates a pending transaction and returns the reference
+  /// Calls the initiate-deposit edge function which triggers STK push
   Future<void> _onDepositInitiated(
       DepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final ref = await ConnectivityService.instance.guard(() async {
-        // Generate reference
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final reference = 'DEP-$timestamp';
-
-        // Insert pending transaction
-        await _supabase.from('transactions').insert({
-          'member_id': event.memberId,
-          'account_type': event.accountType,
-          'transaction_type': 'deposit',
-          'amount': event.amount,
-          'reference': reference,
-          'description': event.description ?? 'Deposit via ${event.paymentMethod}',
-          'status': 'pending',
-        });
-
-        return reference;
+      final response = await ConnectivityService.instance.guard(() async {
+        return await _supabase.functions.invoke(
+          'initiate-deposit',
+          body: {'amount': event.amount},
+        );
       });
 
-      emit(TransactionPendingCheckout(
-        reference: ref,
-        amount: event.amount,
-        accountType: event.accountType,
-        memberId: event.memberId,
-      ));
-    } on PostgrestException catch (e) {
-      debugPrint('[TRANSACTION] DB error: ${e.message}');
-      emit(TransactionError('Failed to initiate deposit: ${e.message}'));
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['success'] == true) {
+        emit(TransactionStkPushSent(
+          transactionId: data['transaction_id'],
+          invoiceId: data['invoice_id'] ?? '',
+          amount: event.amount,
+        ));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
+      }
+    } on FunctionException catch (e) {
+      debugPrint('[TRANSACTION] Function error: ${e.details}');
+      emit(TransactionError('Payment service error. Please try again.'));
     } catch (e) {
       debugPrint('[TRANSACTION] Error: $e');
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
-  /// Called after IntaSend checkout completes — updates transaction + balance
-  Future<void> _onDepositCompleted(
-      DepositCompleted event, Emitter<TransactionState> emit) async {
-    emit(TransactionLoading());
+  /// Poll transaction status after STK push
+  Future<void> _onDepositStatusChecked(
+      DepositStatusChecked event, Emitter<TransactionState> emit) async {
     try {
-      await ConnectivityService.instance.guard(() async {
-        // Update transaction status
-        await _supabase
-            .from('transactions')
-            .update({
-              'status': event.success ? 'completed' : 'failed',
-              'intasend_ref': event.intasendRef,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('reference', event.reference);
+      final tx = await _supabase
+          .from('transactions')
+          .select('status, amount')
+          .eq('id', event.transactionId)
+          .single();
 
-        if (event.success) {
-          // Update account balance
-          if (event.accountType == 'bosa') {
-            final account = await _supabase
-                .from('bosa_accounts')
-                .select('savings_balance')
-                .eq('member_id', event.memberId)
-                .single();
+      final status = tx['status'] as String;
+      final amount = double.tryParse(tx['amount'].toString()) ?? 0;
 
-            final current =
-                double.tryParse(account['savings_balance'].toString()) ?? 0;
-            await _supabase.from('bosa_accounts').update({
-              'savings_balance': current + event.amount,
-              'updated_at': DateTime.now().toIso8601String(),
-            }).eq('member_id', event.memberId);
-          } else {
-            final account = await _supabase
-                .from('fosa_accounts')
-                .select('balance')
-                .eq('member_id', event.memberId)
-                .single();
-
-            final current =
-                double.tryParse(account['balance'].toString()) ?? 0;
-            await _supabase.from('fosa_accounts').update({
-              'balance': current + event.amount,
-              'updated_at': DateTime.now().toIso8601String(),
-            }).eq('member_id', event.memberId);
-          }
-        }
-      });
-
-      if (event.success) {
-        emit(TransactionSuccess('Deposit of KES ${event.amount.toStringAsFixed(2)} successful'));
-      } else {
-        emit(TransactionError('Payment was not completed'));
+      if (status == 'completed') {
+        emit(TransactionSuccess(
+            'Deposit of KES ${amount.toStringAsFixed(2)} successful'));
+      } else if (status == 'failed') {
+        emit(TransactionError('Payment failed. Please try again.'));
       }
+      // if still pending, stay in StkPushSent state — user keeps waiting
     } catch (e) {
-      debugPrint('[TRANSACTION] Complete error: $e');
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      debugPrint('[TRANSACTION] Status check error: $e');
     }
   }
 }

@@ -24,7 +24,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return;
       }
 
-      debugPrint('[TRANSACTION] Initiating checkout for KES ${event.amount}');
+      debugPrint('[TRANSACTION] Initiating checkout');
 
       final response = await ConnectivityService.instance.guard(() async {
         return await _supabase.functions.invoke(
@@ -41,7 +41,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         emit(TransactionCheckoutReady(
           checkoutUrl: data['checkout_url'],
           transactionId: data['transaction_id'],
-          amount: event.amount,
+          amount: 0,
         ));
       } else {
         emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));

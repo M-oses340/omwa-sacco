@@ -29,7 +29,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       final response = await ConnectivityService.instance.guard(() async {
         return await _supabase.functions.invoke(
           'initiate-checkout',
-          body: {'amount': event.amount},
+          body: {},
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         );
       });

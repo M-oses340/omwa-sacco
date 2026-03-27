@@ -12,22 +12,15 @@ class DepositScreen extends StatefulWidget {
 }
 
 class _DepositScreenState extends State<DepositScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _amountController = TextEditingController();
-
   @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    final amount = double.parse(_amountController.text.trim());
-    context.read<TransactionBloc>().add(DepositInitiated(
-          memberId: widget.member['id'],
-          amount: amount,
-        ));
+  void initState() {
+    super.initState();
+    // Auto-initiate checkout when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TransactionBloc>().add(
+            DepositInitiated(memberId: widget.member['id']),
+          );
+    });
   }
 
   @override
@@ -47,104 +40,21 @@ class _DepositScreenState extends State<DepositScreen> {
             content: Text(state.message),
             backgroundColor: Colors.redAccent,
           ));
+          Navigator.of(context).pop(false);
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Deposit to FOSA')),
+        appBar: AppBar(title: const Text('Deposit')),
         body: BlocBuilder<TransactionBloc, TransactionState>(
           builder: (context, state) {
-            final isLoading = state is TransactionLoading;
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // FOSA info card
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00695C).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: const Color(0xFF00695C).withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.account_balance_wallet,
-                              color: Color(0xFF00695C)),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('FOSA Account',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF00695C))),
-                                Text(
-                                    'Pay via M-Pesa or Card in the next step',
-                                    style: TextStyle(
-                                        fontSize: 12, color: Colors.black54)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text('Amount (KES)',
-                        style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      decoration: InputDecoration(
-                        hintText: '0.00',
-                        prefixText: 'KES ',
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Enter amount';
-                        final n = double.tryParse(v.trim());
-                        if (n == null || n <= 0) return 'Enter a valid amount';
-                        if (n < 10) return 'Minimum deposit is KES 10';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: isLoading ? null : _submit,
-                        icon: isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.payment, color: Colors.white),
-                        label: Text(
-                          isLoading ? 'Processing...' : 'Proceed to Payment',
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Opening payment...'),
+                ],
               ),
             );
           },

@@ -4,8 +4,7 @@ abstract class TransactionEvent {}
 
 class DepositInitiated extends TransactionEvent {
   final String memberId;
-  final double amount;
-  DepositInitiated({required this.memberId, required this.amount});
+  DepositInitiated({required this.memberId});
 }
 
 class CheckoutCompleted extends TransactionEvent {

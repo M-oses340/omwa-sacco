@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const INTASEND_API_URL = 'https://sandbox.intasend.com/api/v1'
-const INTASEND_SECRET_KEY = Deno.env.get('INTASEND_SECRET_KEY')!
 const INTASEND_PUBLIC_KEY = Deno.env.get('INTASEND_PUBLIC_KEY')!
 
 Deno.serve(async (req) => {
@@ -27,11 +26,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
     }
 
-    const { amount } = await req.json()
-    if (!amount || amount < 10) {
-      return new Response(JSON.stringify({ error: 'Minimum deposit is KES 10' }), { status: 400 })
-    }
-
     const { data: member } = await supabaseAdmin
       .from('members')
       .select('id, full_name, email, phone_number, status')
@@ -52,16 +46,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'FOSA account not found' }), { status: 404 })
     }
 
-    // Create pending transaction
+    // Create a pending transaction with amount 0 — will be updated by webhook
     const { data: transaction } = await supabaseAdmin
       .from('transactions')
       .insert({
         member_id: member.id,
         account_type: 'fosa',
         transaction_type: 'deposit',
-        amount: amount,
+        amount: 0,
         balance_before: fosa.balance,
-        description: 'FOSA deposit via Bank/Card',
+        description: 'FOSA deposit via IntaSend checkout',
         status: 'pending',
       })
       .select('id')
@@ -71,16 +65,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Failed to create transaction' }), { status: 500 })
     }
 
-    // Create checkout via IntaSend API (public key only for checkout)
     const nameParts = (member.full_name ?? '').split(' ')
     const checkoutResponse = await fetch(`${INTASEND_API_URL}/checkout/`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         public_key: INTASEND_PUBLIC_KEY,
-        amount: amount,
         currency: 'KES',
         email: member.email ?? '',
         first_name: nameParts[0] ?? '',
@@ -89,17 +79,15 @@ Deno.serve(async (req) => {
         api_ref: `${member.id}:fosa:${transaction.id}`,
         redirect_url: 'https://omwasacco.app/payment/callback',
         comment: `Omwa Sacco FOSA Deposit - ${fosa.account_number}`,
-        // No method specified — shows both Card and M-Pesa tabs
       }),
     })
 
     const checkoutData = await checkoutResponse.json()
-    console.log('[BANK-DEPOSIT] Checkout response:', JSON.stringify(checkoutData))
+    console.log('[CHECKOUT] Response:', JSON.stringify(checkoutData))
 
     if (!checkoutResponse.ok || !checkoutData.url) {
       await supabaseAdmin.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
       const errMsg = checkoutData.detail || checkoutData.message || JSON.stringify(checkoutData)
-      console.error('[BANK-DEPOSIT] Checkout failed:', errMsg)
       return new Response(JSON.stringify({ error: errMsg }), { status: 400 })
     }
 
@@ -110,7 +98,7 @@ Deno.serve(async (req) => {
     }), { headers: { 'Content-Type': 'application/json' } })
 
   } catch (error) {
-    console.error('[BANK-DEPOSIT] Error:', error.message)
+    console.error('[CHECKOUT] Error:', error.message)
     return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
 })

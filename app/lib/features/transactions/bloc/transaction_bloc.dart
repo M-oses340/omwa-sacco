@@ -11,8 +11,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   TransactionBloc() : super(TransactionInitial()) {
     on<DepositInitiated>(_onDepositInitiated);
-    on<DepositStatusChecked>(_onDepositStatusChecked);
-    on<BankCheckoutCompleted>(_onBankCheckoutCompleted);
+    on<CheckoutCompleted>(_onCheckoutCompleted);
   }
 
   Future<void> _onDepositInitiated(
@@ -25,38 +24,25 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return;
       }
 
-      debugPrint('[TRANSACTION] Session user: ${session.user.id}');
-      debugPrint('[TRANSACTION] Token (first 20): ${session.accessToken.substring(0, 20)}...');
-      debugPrint('[TRANSACTION] Method: ${event.method}');
-
-      final functionName = event.method == 'bank'
-          ? 'initiate-bank-deposit'
-          : 'initiate-deposit';
+      debugPrint('[TRANSACTION] Initiating checkout for KES ${event.amount}');
 
       final response = await ConnectivityService.instance.guard(() async {
         return await _supabase.functions.invoke(
-          functionName,
+          'initiate-checkout',
           body: {'amount': event.amount},
           headers: {'Authorization': 'Bearer ${session.accessToken}'},
         );
       });
 
       final data = response.data as Map<String, dynamic>;
+      debugPrint('[TRANSACTION] Checkout URL: ${data['checkout_url']}');
 
       if (data['success'] == true) {
-        if (event.method == 'bank') {
-          emit(TransactionBankCheckoutReady(
-            checkoutUrl: data['checkout_url'],
-            transactionId: data['transaction_id'],
-            amount: event.amount,
-          ));
-        } else {
-          emit(TransactionStkPushSent(
-            transactionId: data['transaction_id'],
-            invoiceId: data['invoice_id'] ?? '',
-            amount: event.amount,
-          ));
-        }
+        emit(TransactionCheckoutReady(
+          checkoutUrl: data['checkout_url'],
+          transactionId: data['transaction_id'],
+          amount: event.amount,
+        ));
       } else {
         emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
       }
@@ -69,8 +55,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
-  Future<void> _onDepositStatusChecked(
-      DepositStatusChecked event, Emitter<TransactionState> emit) async {
+  Future<void> _onCheckoutCompleted(
+      CheckoutCompleted event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
     try {
       final tx = await _supabase
           .from('transactions')
@@ -78,33 +65,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           .eq('id', event.transactionId)
           .single();
 
-      final status = tx['status'] as String;
       final amount = double.tryParse(tx['amount'].toString()) ?? 0;
 
-      if (status == 'completed') {
-        emit(TransactionSuccess(
-            'Deposit of KES ${amount.toStringAsFixed(2)} successful'));
-      } else if (status == 'failed') {
-        emit(TransactionError('Payment failed. Please try again.'));
-      }
-    } catch (e) {
-      debugPrint('[TRANSACTION] Status check error: $e');
-    }
-  }
-
-  Future<void> _onBankCheckoutCompleted(
-      BankCheckoutCompleted event, Emitter<TransactionState> emit) async {
-    emit(TransactionLoading());
-    try {
       if (event.success) {
-        // Webhook will handle the actual credit — just check status
-        final tx = await _supabase
-            .from('transactions')
-            .select('status, amount')
-            .eq('id', event.transactionId)
-            .single();
-
-        final amount = double.tryParse(tx['amount'].toString()) ?? 0;
         emit(TransactionSuccess(
             'Deposit of KES ${amount.toStringAsFixed(2)} is being processed'));
       } else {

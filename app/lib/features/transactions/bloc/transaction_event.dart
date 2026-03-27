@@ -5,22 +5,11 @@ abstract class TransactionEvent {}
 class DepositInitiated extends TransactionEvent {
   final String memberId;
   final double amount;
-  final String method; // 'mpesa' or 'bank'
-
-  DepositInitiated({
-    required this.memberId,
-    required this.amount,
-    required this.method,
-  });
+  DepositInitiated({required this.memberId, required this.amount});
 }
 
-class DepositStatusChecked extends TransactionEvent {
-  final String transactionId;
-  DepositStatusChecked(this.transactionId);
-}
-
-class BankCheckoutCompleted extends TransactionEvent {
+class CheckoutCompleted extends TransactionEvent {
   final String transactionId;
   final bool success;
-  BankCheckoutCompleted({required this.transactionId, required this.success});
+  CheckoutCompleted({required this.transactionId, required this.success});
 }

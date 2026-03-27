@@ -71,26 +71,41 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Failed to create transaction' }), { status: 500 })
     }
 
-    // Build IntaSend hosted checkout URL
+    // Create checkout via IntaSend API (public key only for checkout)
     const nameParts = (member.full_name ?? '').split(' ')
-    const params = new URLSearchParams({
-      public_key: INTASEND_PUBLIC_KEY,
-      amount: amount.toString(),
-      currency: 'KES',
-      email: member.email ?? '',
-      first_name: nameParts[0] ?? '',
-      last_name: nameParts.slice(1).join(' ') ?? '',
-      phone_number: member.phone_number ?? '',
-      api_ref: `${member.id}:fosa:${transaction.id}`,
-      redirect_url: 'https://omwasacco.app/payment/callback',
-      comment: `Omwa Sacco FOSA Deposit - ${fosa.account_number}`,
+    const checkoutResponse = await fetch(`${INTASEND_API_URL}/checkout/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        public_key: INTASEND_PUBLIC_KEY,
+        amount: amount,
+        currency: 'KES',
+        email: member.email ?? '',
+        first_name: nameParts[0] ?? '',
+        last_name: nameParts.slice(1).join(' ') ?? '',
+        phone_number: member.phone_number ?? '',
+        api_ref: `${member.id}:fosa:${transaction.id}`,
+        redirect_url: 'https://omwasacco.app/payment/callback',
+        comment: `Omwa Sacco FOSA Deposit - ${fosa.account_number}`,
+        // No method specified — shows both Card and M-Pesa tabs
+      }),
     })
 
-    const checkoutUrl = `https://sandbox.intasend.com/pay/host/?${params.toString()}`
+    const checkoutData = await checkoutResponse.json()
+    console.log('[BANK-DEPOSIT] Checkout response:', JSON.stringify(checkoutData))
+
+    if (!checkoutResponse.ok || !checkoutData.url) {
+      await supabaseAdmin.from('transactions').update({ status: 'failed' }).eq('id', transaction.id)
+      const errMsg = checkoutData.detail || checkoutData.message || JSON.stringify(checkoutData)
+      console.error('[BANK-DEPOSIT] Checkout failed:', errMsg)
+      return new Response(JSON.stringify({ error: errMsg }), { status: 400 })
+    }
 
     return new Response(JSON.stringify({
       success: true,
-      checkout_url: checkoutUrl,
+      checkout_url: checkoutData.url,
       transaction_id: transaction.id,
     }), { headers: { 'Content-Type': 'application/json' } })
 

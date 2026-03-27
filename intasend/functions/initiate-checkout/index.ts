@@ -26,6 +26,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
     }
 
+    const body = await req.json().catch(() => ({}))
+    const amount = body?.amount
+
+    if (!amount || amount < 10) {
+      return new Response(JSON.stringify({ error: 'Minimum deposit is KES 10' }), { status: 400 })
+    }
+
     const { data: member } = await supabaseAdmin
       .from('members')
       .select('id, full_name, email, phone_number, status')
@@ -53,7 +60,7 @@ Deno.serve(async (req) => {
         member_id: member.id,
         account_type: 'fosa',
         transaction_type: 'deposit',
-        amount: 0,
+        amount: amount,
         balance_before: fosa.balance,
         description: 'FOSA deposit via IntaSend checkout',
         status: 'pending',
@@ -71,6 +78,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         public_key: INTASEND_PUBLIC_KEY,
+        amount: amount,
         currency: 'KES',
         email: member.email ?? '',
         first_name: nameParts[0] ?? '',

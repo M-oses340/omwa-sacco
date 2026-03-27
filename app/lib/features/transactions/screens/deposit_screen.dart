@@ -12,15 +12,21 @@ class DepositScreen extends StatefulWidget {
 }
 
 class _DepositScreenState extends State<DepositScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountController = TextEditingController();
+
   @override
-  void initState() {
-    super.initState();
-    // Auto-initiate checkout when screen opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TransactionBloc>().add(
-            DepositInitiated(memberId: widget.member['id']),
-          );
-    });
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    final amount = double.parse(_amountController.text.trim());
+    context.read<TransactionBloc>().add(
+          DepositInitiated(memberId: widget.member['id'], amount: amount),
+        );
   }
 
   @override
@@ -40,21 +46,102 @@ class _DepositScreenState extends State<DepositScreen> {
             content: Text(state.message),
             backgroundColor: Colors.redAccent,
           ));
-          Navigator.of(context).pop(false);
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Deposit')),
+        appBar: AppBar(title: const Text('Deposit to FOSA')),
         body: BlocBuilder<TransactionBloc, TransactionState>(
           builder: (context, state) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Opening payment...'),
-                ],
+            final isLoading = state is TransactionLoading;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00695C).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: const Color(0xFF00695C).withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.account_balance_wallet,
+                              color: Color(0xFF00695C)),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('FOSA Account',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF00695C))),
+                                Text('Pay via M-Pesa or Card in the next step',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.black54)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Amount (KES)',
+                        style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: InputDecoration(
+                        hintText: '0.00',
+                        prefixText: 'KES ',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Enter amount';
+                        final n = double.tryParse(v.trim());
+                        if (n == null || n <= 0) return 'Enter a valid amount';
+                        if (n < 10) return 'Minimum deposit is KES 10';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: isLoading ? null : _submit,
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.payment, color: Colors.white),
+                        label: Text(
+                          isLoading ? 'Processing...' : 'Proceed to Payment',
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -67,10 +154,7 @@ class _DepositScreenState extends State<DepositScreen> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => _CheckoutWebView(
-          url: state.checkoutUrl,
-          transactionId: state.transactionId,
-        ),
+        builder: (_) => _CheckoutWebView(url: state.checkoutUrl),
       ),
     );
     if (mounted) {
@@ -84,8 +168,7 @@ class _DepositScreenState extends State<DepositScreen> {
 
 class _CheckoutWebView extends StatefulWidget {
   final String url;
-  final String transactionId;
-  const _CheckoutWebView({required this.url, required this.transactionId});
+  const _CheckoutWebView({required this.url});
 
   @override
   State<_CheckoutWebView> createState() => _CheckoutWebViewState();

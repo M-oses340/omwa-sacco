@@ -78,7 +78,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             }
           },
           builder: (context, state) {
-            if (state is AuthLoading) return const SplashScreen();
+            if (state is AuthLoading || state is AuthInitial) {
+              return const SplashScreen();
+            }
             // PhoneEntry and OtpEntry are handled as bottom sheets
             // inside WelcomeScreen — keep it as the base for those states.
             if (state is AuthPhoneEntry || state is AuthOtpEntry) {

@@ -6,14 +6,15 @@ class AuthCheckSession extends AuthEvent {}
 
 class AuthNavigateToPhone extends AuthEvent {}
 
-class AuthPhoneSubmitted extends AuthEvent {
-  final String phone;
-  AuthPhoneSubmitted(this.phone);
+class AuthEmailSubmitted extends AuthEvent {
+  final String email;
+  AuthEmailSubmitted(this.email);
 }
 
 class AuthOtpSubmitted extends AuthEvent {
   final String otp;
-  AuthOtpSubmitted(this.otp);
+  final String email;
+  AuthOtpSubmitted({required this.otp, required this.email});
 }
 
 class AuthPinFirstEntry extends AuthEvent {
@@ -25,6 +26,8 @@ class AuthPinSubmitted extends AuthEvent {
   final String pin;
   AuthPinSubmitted(this.pin);
 }
+
+class AuthBiometricRequested extends AuthEvent {}
 
 class AuthPinSetup extends AuthEvent {
   final String pin;

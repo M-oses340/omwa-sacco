@@ -23,7 +23,9 @@ class _PhoneScreenState extends State<PhoneScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(AuthPhoneSubmitted(_controller.text.trim()));
+      context
+          .read<AuthBloc>()
+          .add(AuthEmailSubmitted(_controller.text.trim()));
     }
   }
 
@@ -61,8 +63,14 @@ class _PhoneScreenState extends State<PhoneScreen> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Enter email address';
-                    if (!v.contains('@')) return 'Enter a valid email address';
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Enter your email address';
+                    }
+                    final emailRegex =
+                        RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
+                    if (!emailRegex.hasMatch(v.trim())) {
+                      return 'Enter a valid email address';
+                    }
                     return null;
                   },
                 ),

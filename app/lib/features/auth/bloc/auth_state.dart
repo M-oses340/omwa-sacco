@@ -9,14 +9,24 @@ class AuthLoading extends AuthState {}
 class AuthPhoneEntry extends AuthState {}
 
 class AuthOtpEntry extends AuthState {
-  final String phone;
-  AuthOtpEntry(this.phone);
+  final String email;
+  AuthOtpEntry(this.email);
 }
 
 class AuthPinEntry extends AuthState {
   final bool isNewUser;
   final String? memberName;
-  AuthPinEntry({this.isNewUser = false, this.memberName});
+  final int failedAttempts;
+  AuthPinEntry({
+    this.isNewUser = false,
+    this.memberName,
+    this.failedAttempts = 0,
+  });
+}
+
+class AuthPinLocked extends AuthState {
+  final DateTime unlocksAt;
+  AuthPinLocked(this.unlocksAt);
 }
 
 class AuthPinConfirm extends AuthState {

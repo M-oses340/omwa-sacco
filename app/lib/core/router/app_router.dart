@@ -8,6 +8,7 @@ import '../../features/auth/screens/phone_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/pin_screen.dart';
 import '../../features/auth/screens/pin_confirm_screen.dart';
+import '../../features/auth/screens/pin_locked_screen.dart';
 import '../../features/auth/screens/registration_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 
@@ -68,41 +69,37 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       child: Listener(
         onPointerDown: (_) => _resetTimer(),
         child: BlocConsumer<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is AuthLoading) {
-            return const SplashScreen();
-          }
-          if (state is AuthPhoneEntry) {
-            return const PhoneScreen();
-          }
-          if (state is AuthOtpEntry) {
-            return OtpScreen(phone: state.phone);
-          }
-          if (state is AuthPinEntry) {
-            return PinScreen(isNewUser: state.isNewUser, memberName: state.memberName);
-          }
-          if (state is AuthPinConfirm) {
-            return PinConfirmScreen(firstPin: state.firstPin);
-          }
-          if (state is AuthRegistration) {
-            return const RegistrationScreen();
-          }
-          if (state is AuthAuthenticated) {
-            return DashboardScreen(member: state.member);
-          }
-          return const WelcomeScreen();
-        },
-      ),
+          listener: (context, state) {
+            if (state is AuthError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is AuthLoading) return const SplashScreen();
+            if (state is AuthPhoneEntry) return const PhoneScreen();
+            if (state is AuthOtpEntry) return OtpScreen(email: state.email);
+            if (state is AuthPinEntry) {
+              return PinScreen(
+                  isNewUser: state.isNewUser, memberName: state.memberName);
+            }
+            if (state is AuthPinLocked) {
+              return PinLockedScreen(unlocksAt: state.unlocksAt);
+            }
+            if (state is AuthPinConfirm) {
+              return PinConfirmScreen(firstPin: state.firstPin);
+            }
+            if (state is AuthRegistration) return const RegistrationScreen();
+            if (state is AuthAuthenticated) {
+              return DashboardScreen(member: state.member);
+            }
+            return const WelcomeScreen();
+          },
+        ),
       ),
     );
   }

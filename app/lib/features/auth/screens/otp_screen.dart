@@ -5,8 +5,8 @@ import '../bloc/auth_bloc.dart';
 import '../widgets/auth_header.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String phone;
-  const OtpScreen({super.key, required this.phone});
+  final String email;
+  const OtpScreen({super.key, required this.email});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -14,6 +14,13 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   bool _resent = false;
+
+  void _resend() {
+    context.read<AuthBloc>().add(AuthEmailSubmitted(widget.email));
+    setState(() => _resent = true);
+    Future.delayed(
+        const Duration(seconds: 30), () => setState(() => _resent = false));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +38,7 @@ class _OtpScreenState extends State<OtpScreen> {
               Text('Verify your email',
                   style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),
-              Text('Enter the 6-digit code sent to ${widget.phone}',
+              Text('Enter the 6-digit code sent to ${widget.email}',
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
@@ -67,29 +74,22 @@ class _OtpScreenState extends State<OtpScreen> {
                       color: cs.primary.withValues(alpha: 0.08),
                     ),
                   ),
-                  onCompleted: (otp) =>
-                      context.read<AuthBloc>().add(AuthOtpSubmitted(otp)),
+                  onCompleted: (otp) => context.read<AuthBloc>().add(
+                        AuthOtpSubmitted(otp: otp, email: widget.email),
+                      ),
                 ),
               ),
               const Spacer(),
               Center(
                 child: TextButton(
-                  onPressed: _resent
-                      ? null
-                      : () {
-                          context
-                              .read<AuthBloc>()
-                              .add(AuthPhoneSubmitted(widget.phone));
-                          setState(() => _resent = true);
-                          Future.delayed(const Duration(seconds: 30),
-                              () => setState(() => _resent = false));
-                        },
+                  onPressed: _resent ? null : _resend,
                   child: Text(_resent ? 'Code resent' : 'Resend code'),
                 ),
               ),
               Center(
                 child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () =>
+                      context.read<AuthBloc>().add(AuthNavigateToPhone()),
                   child: const Text('Wrong email? Go back'),
                 ),
               ),

@@ -25,16 +25,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _submit() {
-    debugPrint('[REGISTER] Continue pressed');
-    debugPrint('[REGISTER] Full name: "${_nameController.text.trim()}"');
-    debugPrint('[REGISTER] National ID: "${_idController.text.trim()}"');
-    debugPrint('[REGISTER] Phone: "${_phoneController.text.trim()}"');
-
-    final isValid = _formKey.currentState!.validate();
-    debugPrint('[REGISTER] Form valid: $isValid');
-
-    if (isValid) {
-      debugPrint('[REGISTER] Dispatching AuthRegisterSubmitted');
+    if (_formKey.currentState!.validate()) {
       context.read<AuthBloc>().add(AuthRegisterSubmitted(
             fullName: _nameController.text.trim(),
             nationalId: _idController.text.trim(),
@@ -67,12 +58,59 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         .bodyMedium
                         ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
                 const SizedBox(height: 32),
-                _buildField(_nameController, 'Full Name', Icons.person),
+                TextFormField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (v.trim().split(' ').length < 2) {
+                      return 'Enter your full name';
+                    }
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 16),
-                _buildField(_idController, 'National ID', Icons.badge),
+                TextFormField(
+                  controller: _idController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'National ID',
+                    prefixIcon: const Icon(Icons.badge),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    if (v.trim().length < 6) return 'Enter a valid National ID';
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 16),
-                _buildField(_phoneController, 'Phone Number', Icons.phone,
-                    keyboardType: TextInputType.phone),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number',
+                    hintText: '07XXXXXXXX',
+                    prefixIcon: const Icon(Icons.phone),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    final phoneRegex = RegExp(r'^(?:\+254|0)[17]\d{8}$');
+                    if (!phoneRegex.hasMatch(v.trim())) {
+                      return 'Enter a valid Kenyan phone number';
+                    }
+                    return null;
+                  },
+                ),
                 const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
@@ -96,24 +134,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
     );
   }
 }

@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:local_auth/local_auth.dart';
 import '../../../core/services/connectivity_service.dart';
+import '../../../core/utils/pin_utils.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -11,16 +13,20 @@ part 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  String? _currentPhone;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  static const int _maxPinAttempts = 5;
+  static const Duration _lockoutDuration = Duration(minutes: 5);
 
   AuthBloc() : super(AuthInitial()) {
     on<AuthCheckSession>(_onCheckSession);
-    on<AuthNavigateToPhone>((event, emit) => emit(AuthPhoneEntry()));
-    on<AuthPhoneSubmitted>(_onPhoneSubmitted);
+    on<AuthNavigateToPhone>((_, emit) => emit(AuthPhoneEntry()));
+    on<AuthEmailSubmitted>(_onEmailSubmitted);
     on<AuthOtpSubmitted>(_onOtpSubmitted);
     on<AuthRegisterSubmitted>(_onRegisterSubmitted);
     on<AuthPinFirstEntry>((event, emit) => emit(AuthPinConfirm(event.pin)));
     on<AuthPinSubmitted>(_onPinSubmitted);
+    on<AuthBiometricRequested>(_onBiometricRequested);
     on<AuthPinSetup>(_onPinSetup);
     on<AuthLogoutRequested>(_onLogout);
   }
@@ -34,8 +40,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     final user = session.user;
+
+    // Check lockout
+    final lockoutStr = await _storage.read(key: 'pin_lockout_${user.id}');
+    if (lockoutStr != null) {
+      final unlocksAt = DateTime.tryParse(lockoutStr);
+      if (unlocksAt != null && DateTime.now().isBefore(unlocksAt)) {
+        emit(AuthPinLocked(unlocksAt));
+        return;
+      } else {
+        await _storage.delete(key: 'pin_lockout_${user.id}');
+        await _storage.delete(key: 'pin_attempts_${user.id}');
+      }
+    }
+
     final storedPin = await _storage.read(key: 'user_pin_${user.id}');
-    debugPrint('[AUTH] Stored PIN exists: ${storedPin != null}');
     if (storedPin == null) {
       emit(AuthInitial());
       return;
@@ -44,23 +63,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthPinEntry(isNewUser: false));
   }
 
-  Future<void> _onPhoneSubmitted(
-      AuthPhoneSubmitted event, Emitter<AuthState> emit) async {
+  Future<void> _onEmailSubmitted(
+      AuthEmailSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    debugPrint('[AUTH] Sending OTP to email: ${event.phone}');
+    debugPrint('[AUTH] Sending OTP to email: ${event.email}');
     try {
-      _currentPhone = event.phone;
       await ConnectivityService.instance.guard(
-        () => _supabase.auth.signInWithOtp(email: event.phone),
+        () => _supabase.auth.signInWithOtp(email: event.email),
       );
-      debugPrint('[AUTH] OTP sent successfully to: ${event.phone}');
-      emit(AuthOtpEntry(event.phone));
+      debugPrint('[AUTH] OTP sent successfully to: ${event.email}');
+      emit(AuthOtpEntry(event.email));
     } on AuthException catch (e) {
-      debugPrint('[AUTH] AuthException sending OTP: ${e.message} (status: ${e.statusCode})');
       emit(AuthError('Failed to send OTP: ${e.message}'));
-    } catch (e, stack) {
-      debugPrint('[AUTH] Unexpected error sending OTP: $e');
-      debugPrint('[AUTH] Stack trace: $stack');
+    } catch (e) {
       emit(AuthError('Failed to send OTP: ${e.toString()}'));
     }
   }
@@ -68,26 +83,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onOtpSubmitted(
       AuthOtpSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    debugPrint('[AUTH] Verifying OTP for phone: $_currentPhone');
+    debugPrint('[AUTH] Verifying OTP for email: ${event.email}');
     try {
-      if (_currentPhone == null) {
-        debugPrint('[AUTH] Error: phone number is null');
-        emit(AuthError('Phone number not found'));
-        return;
-      }
-
       final response = await ConnectivityService.instance.guard(
         () => _supabase.auth.verifyOTP(
-          email: _currentPhone!,
+          email: event.email,
           token: event.otp,
           type: OtpType.email,
         ),
       );
 
-      debugPrint('[AUTH] OTP verified. User: ${response.user?.id}');
-
       if (response.user == null) {
-        debugPrint('[AUTH] Error: user is null after OTP verification');
         emit(AuthError('Invalid OTP'));
         return;
       }
@@ -98,25 +104,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .eq('user_id', response.user!.id)
           .maybeSingle();
 
-      debugPrint('[AUTH] Member lookup result: ${memberData != null ? 'found' : 'not found'}');
-
       if (memberData == null) {
         emit(AuthRegistration());
       } else {
-        final storedPin = await _storage.read(key: 'user_pin_${response.user!.id}');
-        debugPrint('[AUTH] Stored PIN exists: ${storedPin != null}');
-        if (storedPin == null) {
-          emit(AuthPinEntry(isNewUser: true, memberName: memberData['full_name']));
-        } else {
-          emit(AuthPinEntry(isNewUser: false, memberName: memberData['full_name']));
-        }
+        final storedPin =
+            await _storage.read(key: 'user_pin_${response.user!.id}');
+        emit(AuthPinEntry(
+          isNewUser: storedPin == null,
+          memberName: memberData['full_name'],
+        ));
       }
     } on AuthException catch (e) {
-      debugPrint('[AUTH] AuthException verifying OTP: ${e.message} (status: ${e.statusCode})');
       emit(AuthError('OTP verification failed: ${e.message}'));
-    } catch (e, stack) {
-      debugPrint('[AUTH] Unexpected error verifying OTP: $e');
-      debugPrint('[AUTH] Stack trace: $stack');
+    } catch (e) {
       emit(AuthError('OTP verification failed: ${e.toString()}'));
     }
   }
@@ -127,63 +127,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
-        debugPrint('[REGISTER] Error: no authenticated user');
         emit(AuthError('User not authenticated'));
         return;
       }
 
-      debugPrint('[REGISTER] Creating member for user: ${user.id}');
-      debugPrint('[REGISTER] Email: ${user.email}');
-      debugPrint('[REGISTER] Full name: ${event.fullName}');
-      debugPrint('[REGISTER] National ID: ${event.nationalId}');
-      debugPrint('[REGISTER] Phone: ${event.phoneNumber}');
-
-      // Generate member number based on current count
-      final countResult = await _supabase.from('members').select('id');
-      final memberNumber = 'OM${(countResult.length + 1).toString().padLeft(4, '0')}';
-      debugPrint('[REGISTER] Generated member number: $memberNumber');
-
-      await _supabase.from('members').insert({
-        'user_id': user.id,
-        'member_number': memberNumber,
-        'full_name': event.fullName,
-        'national_id': event.nationalId,
-        'phone_number': event.phoneNumber,
-        'email': user.email,
-        'status': 'active',
+      // Use DB function to generate member number atomically
+      final result = await _supabase.rpc('create_member', params: {
+        'p_user_id': user.id,
+        'p_full_name': event.fullName,
+        'p_national_id': event.nationalId,
+        'p_phone_number': event.phoneNumber,
+        'p_email': user.email,
       });
 
-      // Fetch the created member to get the id
-      final member = await _supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
+      final memberNumber = result as String;
+      debugPrint('[REGISTER] Member created with number: $memberNumber');
 
-      // Create BOSA account
-      await _supabase.from('bosa_accounts').insert({
-        'member_id': member['id'],
-        'account_number': 'BOSA-$memberNumber',
-        'savings_balance': 0.00,
-        'shares_balance': 0.00,
-      });
-
-      // Create FOSA account
-      await _supabase.from('fosa_accounts').insert({
-        'member_id': member['id'],
-        'account_number': 'FOSA-$memberNumber',
-        'balance': 0.00,
-      });
-
-      debugPrint('[REGISTER] Member and accounts created successfully');
       emit(AuthPinEntry(isNewUser: true));
     } on PostgrestException catch (e) {
       debugPrint('[REGISTER] PostgrestException: ${e.message}');
-      debugPrint('[REGISTER] Code: ${e.code}, Details: ${e.details}, Hint: ${e.hint}');
       emit(AuthError('Registration failed: ${e.message}'));
-    } catch (e, stack) {
-      debugPrint('[REGISTER] Unexpected error: $e');
-      debugPrint('[REGISTER] Stack: $stack');
+    } catch (e) {
       emit(AuthError('Registration failed: ${e.toString()}'));
     }
   }
@@ -199,16 +163,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       final storedPin = await _storage.read(key: 'user_pin_${user.id}');
-      if (storedPin != event.pin && event.pin != '__biometric__') {
-        emit(AuthError('Invalid PIN'));
-        emit(AuthPinEntry(isNewUser: false));
+      final hashedInput = hashPin(event.pin);
+
+      if (storedPin != hashedInput) {
+        await _handleFailedAttempt(user.id, emit);
         return;
       }
 
-      // Register device
+      await _clearAttempts(user.id);
       await _registerDevice();
 
-      // Fetch member data
       final memberData = await _supabase
           .from('members')
           .select()
@@ -218,6 +182,43 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthAuthenticated(memberData));
     } catch (e) {
       emit(AuthError('Login failed: ${e.toString()}'));
+    }
+  }
+
+  Future<void> _onBiometricRequested(
+      AuthBiometricRequested event, Emitter<AuthState> emit) async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!canCheck || !isSupported) return;
+
+      final success = await _localAuth.authenticate(
+        localizedReason: 'Use fingerprint to unlock Omwa Sacco',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+
+      if (!success) return;
+
+      emit(AuthLoading());
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        emit(AuthError('User not authenticated'));
+        return;
+      }
+
+      await _registerDevice();
+      final memberData = await _supabase
+          .from('members')
+          .select()
+          .eq('user_id', user.id)
+          .single();
+
+      emit(AuthAuthenticated(memberData));
+    } catch (e) {
+      debugPrint('[BIOMETRIC] Error: $e');
     }
   }
 
@@ -231,10 +232,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      // Store PIN securely
-      await _storage.write(key: 'user_pin_${user.id}', value: event.pin);
+      await _storage.write(
+          key: 'user_pin_${user.id}', value: hashPin(event.pin));
 
-      // Register device
       await _registerDevice();
 
       final memberData = await _supabase
@@ -247,6 +247,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     } catch (e) {
       emit(AuthError('PIN setup failed: ${e.toString()}'));
     }
+  }
+
+  Future<void> _handleFailedAttempt(
+      String userId, Emitter<AuthState> emit) async {
+    final attemptsStr =
+        await _storage.read(key: 'pin_attempts_$userId') ?? '0';
+    final attempts = int.parse(attemptsStr) + 1;
+    await _storage.write(
+        key: 'pin_attempts_$userId', value: attempts.toString());
+
+    if (attempts >= _maxPinAttempts) {
+      final unlocksAt = DateTime.now().add(_lockoutDuration);
+      await _storage.write(
+          key: 'pin_lockout_$userId', value: unlocksAt.toIso8601String());
+      emit(AuthPinLocked(unlocksAt));
+    } else {
+      final remaining = _maxPinAttempts - attempts;
+      emit(AuthError(
+          'Invalid PIN. $remaining attempt${remaining == 1 ? '' : 's'} remaining.'));
+      emit(AuthPinEntry(isNewUser: false, failedAttempts: attempts));
+    }
+  }
+
+  Future<void> _clearAttempts(String userId) async {
+    await _storage.delete(key: 'pin_attempts_$userId');
+    await _storage.delete(key: 'pin_lockout_$userId');
   }
 
   Future<void> _registerDevice() async {
@@ -276,7 +302,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         } catch (_) {}
       }
 
-      // Get member_id
       final memberData = await _supabase
           .from('members')
           .select('id')
@@ -285,7 +310,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (memberData == null) return;
 
-      // Register device
       await _supabase.from('member_devices').upsert({
         'member_id': memberData['id'],
         'device_id': deviceId,
@@ -297,7 +321,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'last_used_at': DateTime.now().toIso8601String(),
       }, onConflict: 'member_id,device_id');
     } catch (e) {
-      // Log but don't fail auth
       debugPrint('Device registration failed: $e');
     }
   }

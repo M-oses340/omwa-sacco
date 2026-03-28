@@ -242,6 +242,7 @@ class _EmailSheetState extends State<_EmailSheet> {
                 controller: _controller,
                 keyboardType: TextInputType.emailAddress,
                 autofocus: true,
+                enabled: !_loading,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _submit(),
                 decoration: InputDecoration(

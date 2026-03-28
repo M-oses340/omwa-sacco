@@ -4,8 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/welcome_screen.dart';
-import '../../features/auth/screens/phone_screen.dart';
-import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/pin_screen.dart';
 import '../../features/auth/screens/pin_confirm_screen.dart';
 import '../../features/auth/screens/pin_locked_screen.dart';
@@ -81,8 +79,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           },
           builder: (context, state) {
             if (state is AuthLoading) return const SplashScreen();
-            if (state is AuthPhoneEntry) return const PhoneScreen();
-            if (state is AuthOtpEntry) return OtpScreen(email: state.email);
+            // PhoneEntry and OtpEntry are handled as bottom sheets
+            // inside WelcomeScreen — keep it as the base for those states.
+            if (state is AuthPhoneEntry || state is AuthOtpEntry) {
+              return const WelcomeScreen();
+            }
             if (state is AuthPinEntry) {
               return PinScreen(
                   needsPinSetup: state.needsPinSetup,

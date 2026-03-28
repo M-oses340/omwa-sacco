@@ -151,7 +151,6 @@ class _EmailSheetState extends State<_EmailSheet> {
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
-  List<String> _emailHints = [];
 
   @override
   void initState() {
@@ -167,10 +166,12 @@ class _EmailSheetState extends State<_EmailSheet> {
         isPhoneNumberIdentifierSupported: false,
       );
       if (credential?.id != null && mounted) {
-        setState(() => _emailHints = [credential!.id]);
+        _controller.text = credential!.id;
+        // Auto-submit — user explicitly picked their email
+        _submit();
       }
     } catch (_) {
-      // Not supported on iOS or older Android — silently ignore
+      // Not supported on iOS or older Android — user types manually
     }
   }
 
@@ -261,24 +262,6 @@ class _EmailSheetState extends State<_EmailSheet> {
                 },
               ),
               const SizedBox(height: 20),
-              if (_emailHints.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: _emailHints.map((email) {
-                    return ActionChip(
-                      avatar: const Icon(Icons.email_outlined, size: 16),
-                      label: Text(email,
-                          style: const TextStyle(fontSize: 12)),
-                      onPressed: () {
-                        _controller.text = email;
-                        _formKey.currentState?.validate();
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-              ],
               SizedBox(
                 width: double.infinity,
                 height: 52,

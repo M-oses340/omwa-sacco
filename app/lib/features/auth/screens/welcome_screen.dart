@@ -300,6 +300,12 @@ class _OtpSheetState extends State<_OtpSheet> {
             backgroundColor: Colors.redAccent,
           ));
         }
+        // Close the sheet once OTP is verified (any state other than loading/otp/error)
+        if (state is! AuthOtpEntry &&
+            state is! AuthLoading &&
+            state is! AuthError) {
+          Navigator.of(context).popUntil((r) => r.isFirst);
+        }
       },
       child: _SheetShell(
         child: Column(

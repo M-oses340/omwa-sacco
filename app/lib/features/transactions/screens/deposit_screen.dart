@@ -1,60 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../bloc/transaction_bloc.dart';
-
-void _showSuccessDialog(BuildContext context, String message) {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) {
-      final cs = Theme.of(ctx).colorScheme;
-      return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle,
-                    color: Colors.green, size: 48),
-              )
-                  .animate()
-                  .scale(duration: 400.ms, curve: Curves.elasticOut),
-              const SizedBox(height: 16),
-              Text('Deposit Submitted',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: cs.onSurface)),
-              const SizedBox(height: 8),
-              Text(message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.6))),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Done'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
 
 Future<bool?> showDepositSheet(
     BuildContext context, Map<String, dynamic> member) {
@@ -102,10 +49,21 @@ class _DepositSheetState extends State<_DepositSheet> {
         builder: (_) => _CheckoutWebView(url: state.checkoutUrl),
       ),
     );
-    if (mounted) {
+    if (!mounted) return;
+
+    if (result == true) {
+      // Close the deposit sheet immediately so there's no flash
+      Navigator.of(context).pop(true);
+      // Then let the bloc verify in the background — success dialog
+      // is shown from dashboard via the refreshed state
       context.read<TransactionBloc>().add(CheckoutCompleted(
             transactionId: state.transactionId,
-            success: result == true,
+            success: true,
+          ));
+    } else {
+      context.read<TransactionBloc>().add(CheckoutCompleted(
+            transactionId: state.transactionId,
+            success: false,
           ));
     }
   }
@@ -120,9 +78,6 @@ class _DepositSheetState extends State<_DepositSheet> {
       listener: (context, state) {
         if (state is TransactionCheckoutReady) {
           _openCheckout(state);
-        } else if (state is TransactionSuccess) {
-          Navigator.of(context).pop(true);
-          _showSuccessDialog(context, state.message);
         } else if (state is TransactionError) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),

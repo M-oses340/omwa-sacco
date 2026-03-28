@@ -27,6 +27,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadData();
   }
 
+  void _showSuccessDialog(BuildContext ctx, String message) {
+    showDialog(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        final cs = Theme.of(dialogCtx).colorScheme;
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                      color: Color(0xFFE8F5E9), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle,
+                      color: Colors.green, size: 48),
+                ),
+                const SizedBox(height: 16),
+                Text('Deposit Submitted',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface)),
+                const SizedBox(height: 8),
+                Text(message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.6))),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    child: const Text('Done'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _loadData() async {
     try {
       final supabase = Supabase.instance.client;
@@ -244,9 +293,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   label: 'Deposit',
                                   color: Colors.green,
                                   onTap: () async {
+                                    final ctx = context;
                                     final refreshed = await showDepositSheet(
-                                        context, widget.member);
-                                    if (refreshed == true) _loadData();
+                                        ctx, widget.member);
+                                    if (refreshed == true) {
+                                      _loadData();
+                                      if (mounted) {
+                                        // ignore: use_build_context_synchronously
+                                        _showSuccessDialog(ctx,
+                                            'Your deposit is being processed.');
+                                      }
+                                    }
                                   }),
                               _QuickAction(
                                   icon: Icons.arrow_upward,

@@ -8,45 +8,52 @@ void _showSuccessDialog(BuildContext context, String message) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (_) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                shape: BoxShape.circle,
+    builder: (ctx) {
+      final cs = Theme.of(ctx).colorScheme;
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle,
+                    color: Colors.green, size: 48),
+              )
+                  .animate()
+                  .scale(duration: 400.ms, curve: Curves.elasticOut),
+              const SizedBox(height: 16),
+              Text('Deposit Submitted',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface)),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6))),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () =>
+                      Navigator.of(context, rootNavigator: true).pop(),
+                  child: const Text('Done'),
+                ),
               ),
-              child: const Icon(Icons.check_circle,
-                  color: Colors.green, size: 48),
-            )
-                .animate()
-                .scale(duration: 400.ms, curve: Curves.elasticOut),
-            const SizedBox(height: 16),
-            const Text('Deposit Submitted',
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-                child: const Text('Done'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 

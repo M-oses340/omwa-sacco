@@ -88,7 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 .select()
                 .eq('member_id', memberId)
                 .order('created_at', ascending: false)
-                .limit(5),
+                .limit(50),
           ]));
       setState(() {
         _bosa = results[0] as Map<String, dynamic>?;
@@ -240,183 +240,145 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
+          // Fixed: account cards + quick actions
+          if (!_loading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _AccountCard(
+                          title: 'BOSA',
+                          subtitle: 'Savings & Shares',
+                          balance: _bosa?['savings_balance'],
+                          shares: _bosa?['shares_balance'],
+                          accountNumber: _bosa?['account_number'],
+                          color: AppColors.primary,
+                          balanceVisible: _balanceVisible,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _AccountCard(
+                          title: 'FOSA',
+                          subtitle: 'Current Account',
+                          balance: _fosa?['balance'],
+                          accountNumber: _fosa?['account_number'],
+                          color: const Color(0xFF00695C),
+                          balanceVisible: _balanceVisible,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Quick Actions',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _QuickAction(
+                          icon: Icons.arrow_downward,
+                          label: 'Deposit',
+                          color: Colors.green,
+                          onTap: () async {
+                            final ctx = context;
+                            final refreshed =
+                                await showDepositSheet(ctx, widget.member);
+                            if (refreshed == true) {
+                              _loadData();
+                              if (mounted) {
+                                // ignore: use_build_context_synchronously
+                                _showSuccessDialog(ctx,
+                                    'Your deposit is being processed.');
+                              }
+                            }
+                          }),
+                      _QuickAction(
+                          icon: Icons.arrow_upward,
+                          label: 'Withdraw',
+                          color: Colors.orange,
+                          onTap: () {}),
+                      _QuickAction(
+                          icon: Icons.swap_horiz,
+                          label: 'Transfer',
+                          color: Colors.blue,
+                          onTap: () {}),
+                      _QuickAction(
+                          icon: Icons.account_balance_wallet,
+                          label: 'Loans',
+                          color: Colors.purple,
+                          onTap: () {}),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+          // Transactions header
+          if (!_loading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Recent Transactions',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  TextButton(onPressed: () {}, child: const Text('See all')),
+                ],
+              ),
+            ),
+
+          // Scrollable transactions (or skeleton/empty)
           Expanded(
             child: _loading
                 ? _buildSkeleton()
                 : RefreshIndicator(
                     onRefresh: _loadData,
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        // Account cards + quick actions
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 8),
-                                Row(
+                    child: _transactions.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              const SizedBox(height: 40),
+                              Center(
+                                child: Column(
                                   children: [
-                                    Expanded(
-                                      child: _AccountCard(
-                                        title: 'BOSA',
-                                        subtitle: 'Savings & Shares',
-                                        balance: _bosa?['savings_balance'],
-                                        shares: _bosa?['shares_balance'],
-                                        accountNumber: _bosa?['account_number'],
-                                        color: AppColors.primary,
-                                        balanceVisible: _balanceVisible,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _AccountCard(
-                                        title: 'FOSA',
-                                        subtitle: 'Current Account',
-                                        balance: _fosa?['balance'],
-                                        accountNumber: _fosa?['account_number'],
-                                        color: const Color(0xFF00695C),
-                                        balanceVisible: _balanceVisible,
-                                      ),
-                                    ),
+                                    Icon(Icons.receipt_long_outlined,
+                                        size: 48,
+                                        color: Colors.grey.shade400),
+                                    const SizedBox(height: 8),
+                                    Text('No transactions yet',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade500)),
                                   ],
                                 ),
-                                const SizedBox(height: 20),
-                                Text('Quick Actions',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                  children: [
-                                    _QuickAction(
-                                        icon: Icons.arrow_downward,
-                                        label: 'Deposit',
-                                        color: Colors.green,
-                                        onTap: () async {
-                                          final ctx = context;
-                                          final refreshed =
-                                              await showDepositSheet(
-                                                  ctx, widget.member);
-                                          if (refreshed == true) {
-                                            _loadData();
-                                            if (mounted) {
-                                              // ignore: use_build_context_synchronously
-                                              _showSuccessDialog(ctx,
-                                                  'Your deposit is being processed.');
-                                            }
-                                          }
-                                        }),
-                                    _QuickAction(
-                                        icon: Icons.arrow_upward,
-                                        label: 'Withdraw',
-                                        color: Colors.orange,
-                                        onTap: () {}),
-                                    _QuickAction(
-                                        icon: Icons.swap_horiz,
-                                        label: 'Transfer',
-                                        color: Colors.blue,
-                                        onTap: () {}),
-                                    _QuickAction(
-                                        icon: Icons.account_balance_wallet,
-                                        label: 'Loans',
-                                        color: Colors.purple,
-                                        onTap: () {}),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // Sticky "Recent Transactions" header
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _StickyHeaderDelegate(
-                            child: Container(
-                              color: Theme.of(context).scaffoldBackgroundColor,
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Recent Transactions',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w600)),
-                                  TextButton(
-                                    onPressed: () {},
-                                    child: const Text('See all'),
-                                  ),
-                                ],
                               ),
-                            ),
-                          ),
-                        ),
-
-                        // Transactions list
-                        if (_transactions.isEmpty)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.receipt_long_outlined,
-                                      size: 48,
-                                      color: Colors.grey.shade400),
-                                  const SizedBox(height: 8),
-                                  Text('No transactions yet',
-                                      style: TextStyle(
-                                          color: Colors.grey.shade500)),
-                                ],
-                              ),
-                            ),
+                            ],
                           )
-                        else
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) => _TransactionTile(
-                                    tx: _transactions[index]),
-                                childCount: _transactions.length,
-                              ),
-                            ),
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            itemCount: _transactions.length,
+                            itemBuilder: (context, index) =>
+                                _TransactionTile(tx: _transactions[index]),
                           ),
-                      ],
-                    ),
                   ),
           ),
         ],
       ),
     );
   }
-}
-
-class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  const _StickyHeaderDelegate({required this.child});
-
-  @override
-  double get minExtent => 48;
-  @override
-  double get maxExtent => 48;
-
-  @override
-  Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
-
-  @override
-  bool shouldRebuild(_StickyHeaderDelegate old) => old.child != child;
 }
 
 class _SkeletonBox extends StatelessWidget {

@@ -22,12 +22,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _showEmailSheet(context);
           });
-        } else if (state is AuthOtpEntry) {
-          final email = state.email;
-          Navigator.of(context).popUntil((r) => r.isFirst);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _showOtpSheet(context, email);
-          });
         }
       },
       child: Scaffold(
@@ -142,20 +136,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     );
   }
-
-  void _showOtpSheet(BuildContext ctx, String email) {
-    final bloc = ctx.read<AuthBloc>();
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      isDismissible: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BlocProvider.value(
-        value: bloc,
-        child: _OtpSheet(email: email),
-      ),
-    );
-  }
 }
 
 // ─── Email sheet ──────────────────────────────────────────────────────────────
@@ -198,6 +178,24 @@ class _EmailSheetState extends State<_EmailSheet> {
             content: Text(state.message),
             backgroundColor: Colors.redAccent,
           ));
+        }
+        if (state is AuthOtpEntry) {
+          // Replace this sheet with the OTP sheet
+          final bloc = context.read<AuthBloc>();
+          final email = state.email;
+          Navigator.of(context).pop();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              isDismissible: false,
+              backgroundColor: Colors.transparent,
+              builder: (_) => BlocProvider.value(
+                value: bloc,
+                child: _OtpSheet(email: email),
+              ),
+            );
+          });
         }
       },
       child: _SheetShell(

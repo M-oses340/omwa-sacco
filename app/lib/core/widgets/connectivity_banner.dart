@@ -47,12 +47,12 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> {
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           height: _isOffline ? 36 : 0,
-          color: Colors.red.shade700,
+          color: cs.error,
           child: _isOffline
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.wifi_off, color: Colors.white, size: 16),
+                    Icon(Icons.wifi_off, color: cs.onError, size: 16),
                     const SizedBox(width: 8),
                     Text('No internet connection',
                         style: TextStyle(

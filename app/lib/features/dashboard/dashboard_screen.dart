@@ -44,8 +44,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: const BoxDecoration(
-                      color: Color(0xFFE8F5E9), shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.15),
+                      shape: BoxShape.circle),
                   child: const Icon(Icons.check_circle,
                       color: Colors.green, size: 48),
                 ),
@@ -101,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ));
       }
     }
@@ -268,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           subtitle: 'Current Account',
                           balance: _fosa?['balance'],
                           accountNumber: _fosa?['account_number'],
-                          color: const Color(0xFF00695C),
+                          color: AppColors.fosaGreen,
                           balanceVisible: _balanceVisible,
                         ),
                       ),
@@ -356,11 +357,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   children: [
                                     Icon(Icons.receipt_long_outlined,
                                         size: 48,
-                                        color: Colors.grey.shade400),
+                                        color: cs.onSurface.withValues(alpha: 0.3)),
                                     const SizedBox(height: 8),
                                     Text('No transactions yet',
                                         style: TextStyle(
-                                            color: Colors.grey.shade500)),
+                                            color: cs.onSurface.withValues(alpha: 0.5))),
                                   ],
                                 ),
                               ),
@@ -604,7 +605,7 @@ class _TransactionTile extends StatelessWidget {
                 Text('Pending',
                     style: TextStyle(
                         fontSize: 10,
-                        color: Colors.orange.shade700)),
+                        color: cs.tertiary)),
             ],
           ),
         ],

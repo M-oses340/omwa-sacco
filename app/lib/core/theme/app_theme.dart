@@ -11,7 +11,7 @@ class AppColors {
   static const Color lightSurface = Colors.white;
   static const Color lightOnSurface = Color(0xFF1A1A2E);
 
-  // Dark theme
+  static const Color fosaGreen = Color(0xFF00695C);
   static const Color darkBackground = Color(0xFF0D1117);
   static const Color darkSurface = Color(0xFF161B22);
   static const Color darkOnSurface = Color(0xFFE6EDF3);

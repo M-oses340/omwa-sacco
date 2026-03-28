@@ -74,7 +74,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
             }

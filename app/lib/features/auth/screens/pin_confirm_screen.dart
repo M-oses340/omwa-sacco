@@ -32,9 +32,9 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
   void _confirm() {
     final pin = _pin.join();
     if (pin != widget.firstPin) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('PINs do not match. Try again.'),
-        backgroundColor: Colors.redAccent,
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('PINs do not match. Try again.'),
+        backgroundColor: Theme.of(context).colorScheme.error,
       ));
       setState(() => _pin.clear());
       return;
@@ -55,7 +55,7 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(state.message),
-              backgroundColor: Colors.redAccent));
+              backgroundColor: Theme.of(context).colorScheme.error));
         }
       },
       child: Scaffold(

@@ -199,7 +199,7 @@ class _EmailSheetState extends State<_EmailSheet> {
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ));
         }
         if (state is AuthOtpEntry) {
@@ -324,7 +324,7 @@ class _OtpSheetState extends State<_OtpSheet> {
           setState(() => _loading = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ));
         } else if (state is! AuthOtpEntry) {
           Navigator.of(context).popUntil((r) => r.isFirst);

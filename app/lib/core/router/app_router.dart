@@ -21,6 +21,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Timer? _inactivityTimer;
   static const _timeout = Duration(minutes: 5);
   AuthBloc? _authBloc;
+  bool _sessionChecked = false;
 
   @override
   void initState() {
@@ -78,12 +79,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               );
             }
           },
-          // Don't rebuild the router screen while loading — let the
-          // active sheet/screen handle its own loading state.
-          buildWhen: (previous, current) => current is! AuthLoading && current is! AuthError,
+          // Only block rebuilds during loading AFTER the session has been
+          // checked — during initial load we want the splash screen.
+          buildWhen: (previous, current) {
+            if (current is AuthLoading && _sessionChecked) return false;
+            if (current is AuthError) return false;
+            if (current is! AuthLoading && current is! AuthInitial) {
+              _sessionChecked = true;
+            }
+            return true;
+          },
           builder: (context, state) {
-            if (state is AuthLoading) return const SplashScreen();
-            if (state is AuthInitial) return const WelcomeScreen();
+            if (state is AuthLoading || state is AuthInitial) {
+              return const SplashScreen();
+            }
             // PhoneEntry and OtpEntry are handled as bottom sheets
             // inside WelcomeScreen — keep it as the base for those states.
             if (state is AuthPhoneEntry || state is AuthOtpEntry) {

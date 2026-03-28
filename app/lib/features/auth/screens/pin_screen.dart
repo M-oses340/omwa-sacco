@@ -97,78 +97,87 @@ class _PinScreenState extends State<PinScreen> {
                     MediaQuery.of(context).padding.bottom,
               ),
               child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: AuthHeader(),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(_greeting(),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.w300)),
-                    ),
-                    if (widget.memberName != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          widget.memberName!.split(' ').first,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: AuthHeader(),
                         ),
-                      ),
-                    const Spacer(),
-                    Center(
-                      child: Text(
-                        widget.needsPinSetup
-                            ? 'Create a PIN'
-                            : 'Enter Your PIN To Proceed',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(_greeting(),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
+                                  ?.copyWith(fontWeight: FontWeight.w300)),
+                        ),
+                        if (widget.memberName != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              widget.memberName!.split(' ').first,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        const Spacer(),
+                        Center(
+                          child: Text(
+                            widget.needsPinSetup
+                                ? 'Create a PIN'
+                                : 'Enter Your PIN To Proceed',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        PinDots(filled: _pin.length, total: _pinLength),
+                        const SizedBox(height: 32),
+                        PinPad(
+                          isDark: isDark,
+                          onKey: _onKey,
+                          onDelete: _onDelete,
+                          showBiometric:
+                              _biometricAvailable && !widget.needsPinSetup,
+                          onBiometric: () => context
+                              .read<AuthBloc>()
+                              .add(AuthBiometricRequested()),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!widget.needsPinSetup)
+                          Center(
+                            child: TextButton(
+                              onPressed: () {
+                                // TODO: implement forgot PIN flow
+                              },
+                              child: const Text('Forgot PIN?'),
+                            ),
+                          ),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    PinDots(filled: _pin.length, total: _pinLength),
-                    const SizedBox(height: 32),
+                    // Loading overlay — sits on top, doesn't replace the PIN pad
                     if (_isLoading)
-                      Center(
-                        child: Column(
-                          children: [
-                            CircularProgressIndicator(color: cs.primary),
-                            const SizedBox(height: 12),
-                            Text('Verifying...',
-                                style: TextStyle(
-                                    color:
-                                        cs.onSurface.withValues(alpha: 0.6))),
-                          ],
-                        ),
-                      )
-                    else
-                      PinPad(
-                        isDark: isDark,
-                        onKey: _onKey,
-                        onDelete: _onDelete,
-                        showBiometric:
-                            _biometricAvailable && !widget.needsPinSetup,
-                        onBiometric: () =>
-                            context.read<AuthBloc>().add(AuthBiometricRequested()),
-                      ),
-                    const SizedBox(height: 16),
-                    if (!_isLoading && !widget.needsPinSetup)
-                      Center(
-                        child: TextButton(
-                          onPressed: () {
-                            // TODO: implement forgot PIN flow
-                          },
-                          child: const Text('Forgot PIN?'),
+                      Container(
+                        color: cs.surface.withValues(alpha: 0.85),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: cs.primary),
+                              const SizedBox(height: 12),
+                              Text('Verifying...',
+                                  style: TextStyle(
+                                      color: cs.onSurface
+                                          .withValues(alpha: 0.6))),
+                            ],
+                          ),
                         ),
                       ),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),

@@ -212,6 +212,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       children: [
                         _GravatarAvatar(
+                          photoUrl: widget.member['profile_photo_url'] as String?,
                           email: widget.member['email'] as String? ??
                               Supabase.instance.client.auth.currentUser?.email ?? '',
                           fallback: name.isNotEmpty ? name[0].toUpperCase() : 'M',
@@ -613,12 +614,14 @@ class _TransactionTile extends StatelessWidget {
 }
 
 class _GravatarAvatar extends StatelessWidget {
+  final String? photoUrl;
   final String email;
   final String fallback;
   final double radius;
   final Color onPrimaryColor;
 
   const _GravatarAvatar({
+    this.photoUrl,
     required this.email,
     required this.fallback,
     required this.radius,
@@ -634,15 +637,20 @@ class _GravatarAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final url = email.isNotEmpty ? _gravatarUrl(email) : null;
+    // Priority: profile_photo_url → Gravatar → initial letter
+    final imageUrl = (photoUrl != null && photoUrl!.isNotEmpty)
+        ? photoUrl!
+        : email.isNotEmpty
+            ? _gravatarUrl(email)
+            : null;
 
     return CircleAvatar(
       radius: radius,
       backgroundColor: onPrimaryColor.withValues(alpha: 0.2),
       child: ClipOval(
-        child: url != null
+        child: imageUrl != null
             ? Image.network(
-                url,
+                imageUrl,
                 width: radius * 2,
                 height: radius * 2,
                 fit: BoxFit.cover,

@@ -212,7 +212,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       children: [
                         _GravatarAvatar(
-                          email: widget.member['email'] ?? '',
+                          email: widget.member['email'] as String? ??
+                              Supabase.instance.client.auth.currentUser?.email ?? '',
                           fallback: name.isNotEmpty ? name[0].toUpperCase() : 'M',
                           radius: 28,
                           onPrimaryColor: cs.onPrimary,

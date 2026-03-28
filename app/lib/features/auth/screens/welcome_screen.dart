@@ -280,6 +280,7 @@ class _OtpSheet extends StatefulWidget {
 }
 
 class _OtpSheetState extends State<_OtpSheet> {
+  bool _loading = false;
   bool _resent = false;
 
   void _resend() {
@@ -294,90 +295,106 @@ class _OtpSheetState extends State<_OtpSheet> {
     final cs = Theme.of(context).colorScheme;
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthError) {
+        if (state is AuthLoading) {
+          setState(() => _loading = true);
+        } else if (state is AuthError) {
+          setState(() => _loading = false);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),
             backgroundColor: Colors.redAccent,
           ));
-        }
-        // Close the sheet once OTP is verified (any state other than loading/otp/error)
-        if (state is! AuthOtpEntry &&
-            state is! AuthLoading &&
-            state is! AuthError) {
+        } else if (state is! AuthOtpEntry) {
           Navigator.of(context).popUntil((r) => r.isFirst);
         }
       },
       child: _SheetShell(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Verify your email',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text('Enter the 6-digit code sent to ${widget.email}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.6))),
-            const SizedBox(height: 28),
-            Center(
-              child: Pinput(
-                length: 6,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                defaultPinTheme: PinTheme(
-                  width: 52,
-                  height: 56,
-                  textStyle: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                        color: cs.outline.withValues(alpha: 0.5), width: 1.5),
-                    borderRadius: BorderRadius.circular(10),
+        child: _loading
+            ? SizedBox(
+                height: 120,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: cs.primary),
+                      const SizedBox(height: 16),
+                      Text('Verifying...',
+                          style: TextStyle(
+                              color: cs.onSurface.withValues(alpha: 0.6))),
+                    ],
                   ),
                 ),
-                focusedPinTheme: PinTheme(
-                  width: 52,
-                  height: 56,
-                  textStyle: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: cs.primary, width: 2),
-                    borderRadius: BorderRadius.circular(10),
-                    color: cs.primary.withValues(alpha: 0.08),
-                  ),
-                ),
-                onCompleted: (otp) => context.read<AuthBloc>().add(
-                      AuthOtpSubmitted(otp: otp, email: widget.email),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Verify your email',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text('Enter the 6-digit code sent to ${widget.email}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.6))),
+                  const SizedBox(height: 28),
+                  Center(
+                    child: Pinput(
+                      length: 6,
+                      keyboardType: TextInputType.number,
+                      autofocus: true,
+                      defaultPinTheme: PinTheme(
+                        width: 52,
+                        height: 56,
+                        textStyle: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: cs.outline.withValues(alpha: 0.5),
+                              width: 1.5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      focusedPinTheme: PinTheme(
+                        width: 52,
+                        height: 56,
+                        textStyle: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: cs.primary, width: 2),
+                          borderRadius: BorderRadius.circular(10),
+                          color: cs.primary.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      onCompleted: (otp) => context.read<AuthBloc>().add(
+                            AuthOtpSubmitted(otp: otp, email: widget.email),
+                          ),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          final bloc = context.read<AuthBloc>();
+                          Navigator.of(context).pop();
+                          bloc.add(AuthNavigateToPhone());
+                        },
+                        child: const Text('Wrong email?'),
+                      ),
+                      TextButton(
+                        onPressed: _resent ? null : _resend,
+                        child: Text(_resent ? 'Code resent' : 'Resend code'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    final bloc = context.read<AuthBloc>();
-                    Navigator.of(context).pop();
-                    bloc.add(AuthNavigateToPhone());
-                  },
-                  child: const Text('Wrong email?'),
-                ),
-                TextButton(
-                  onPressed: _resent ? null : _resend,
-                  child: Text(_resent ? 'Code resent' : 'Resend code'),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

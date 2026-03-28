@@ -41,7 +41,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
       final user = session.user;
 
-      // Check lockout
       final lockoutStr = await _storage.read(key: 'pin_lockout_${user.id}');
       if (lockoutStr != null) {
         final unlocksAt = DateTime.tryParse(lockoutStr);

@@ -44,8 +44,7 @@ void _showSuccessDialog(BuildContext context, String message) {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () =>
-                      Navigator.of(context, rootNavigator: true).pop(),
+                  onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
                   child: const Text('Done'),
                 ),
               ),

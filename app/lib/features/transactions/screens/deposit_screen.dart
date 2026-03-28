@@ -28,7 +28,7 @@ void _showSuccessDialog(BuildContext context, String message) {
                 .animate()
                 .scale(duration: 400.ms, curve: Curves.elasticOut),
             const SizedBox(height: 16),
-            const Text('Payment Submitted',
+            const Text('Deposit Submitted',
                 style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -168,7 +168,7 @@ class _DepositSheetState extends State<_DepositSheet> {
                         Text('Deposit to FOSA',
                             style: tt.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold)),
-                        Text('Pay via M-Pesa or Card',
+                        Text('Deposit via M-Pesa or Card',
                             style: tt.bodySmall
                                 ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
                       ],
@@ -234,7 +234,7 @@ class _DepositSheetState extends State<_DepositSheet> {
                                 color: cs.onPrimary, strokeWidth: 2))
                         : Icon(Icons.payment, color: cs.onPrimary),
                     label: Text(
-                      isLoading ? 'Processing...' : 'Proceed to Payment',
+                      isLoading ? 'Processing...' : 'Deposit',
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -294,7 +294,7 @@ class _CheckoutWebViewState extends State<_CheckoutWebView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Complete Payment'),
+        title: const Text('Complete Deposit'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(false),

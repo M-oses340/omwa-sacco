@@ -19,7 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _fosa;
   List<Map<String, dynamic>> _transactions = [];
   bool _loading = true;
-  bool _balanceVisible = true;
+  bool _balanceVisible = false;
 
   @override
   void initState() {

@@ -85,7 +85,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             if (state is AuthOtpEntry) return OtpScreen(email: state.email);
             if (state is AuthPinEntry) {
               return PinScreen(
-                  isNewUser: state.isNewUser, memberName: state.memberName);
+                  needsPinSetup: state.needsPinSetup,
+                  memberName: state.memberName);
             }
             if (state is AuthPinLocked) {
               return PinLockedScreen(unlocksAt: state.unlocksAt);

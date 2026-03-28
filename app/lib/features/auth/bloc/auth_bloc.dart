@@ -60,7 +60,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     debugPrint('[AUTH] Existing session found for user: ${user.id}');
-    emit(AuthPinEntry(isNewUser: false));
+    emit(AuthPinEntry(needsPinSetup: false));
   }
 
   Future<void> _onEmailSubmitted(
@@ -110,7 +110,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         final storedPin =
             await _storage.read(key: 'user_pin_${response.user!.id}');
         emit(AuthPinEntry(
-          isNewUser: storedPin == null,
+          needsPinSetup: storedPin == null,
           memberName: memberData['full_name'],
         ));
       }
@@ -143,7 +143,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final memberNumber = result as String;
       debugPrint('[REGISTER] Member created with number: $memberNumber');
 
-      emit(AuthPinEntry(isNewUser: true));
+      emit(AuthPinEntry(needsPinSetup: true));
     } on PostgrestException catch (e) {
       debugPrint('[REGISTER] PostgrestException: ${e.message}');
       emit(AuthError('Registration failed: ${e.message}'));
@@ -266,7 +266,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final remaining = _maxPinAttempts - attempts;
       emit(AuthError(
           'Invalid PIN. $remaining attempt${remaining == 1 ? '' : 's'} remaining.'));
-      emit(AuthPinEntry(isNewUser: false, failedAttempts: attempts));
+      emit(AuthPinEntry(needsPinSetup: false, failedAttempts: attempts));
     }
   }
 

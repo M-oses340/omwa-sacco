@@ -14,11 +14,13 @@ class AuthOtpEntry extends AuthState {
 }
 
 class AuthPinEntry extends AuthState {
-  final bool isNewUser;
+  /// True when the user has no PIN stored locally (new device or first login).
+  /// Does NOT mean they are a new member — use [isNewMember] for that.
+  final bool needsPinSetup;
   final String? memberName;
   final int failedAttempts;
   AuthPinEntry({
-    this.isNewUser = false,
+    this.needsPinSetup = false,
     this.memberName,
     this.failedAttempts = 0,
   });

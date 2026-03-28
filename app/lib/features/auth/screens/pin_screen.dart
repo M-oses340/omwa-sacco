@@ -7,9 +7,9 @@ import '../widgets/pin_dots.dart';
 import '../widgets/pin_pad.dart';
 
 class PinScreen extends StatefulWidget {
-  final bool isNewUser;
+  final bool needsPinSetup;
   final String? memberName;
-  const PinScreen({super.key, this.isNewUser = false, this.memberName});
+  const PinScreen({super.key, this.needsPinSetup = false, this.memberName});
 
   @override
   State<PinScreen> createState() => _PinScreenState();
@@ -34,7 +34,7 @@ class _PinScreenState extends State<PinScreen> {
     if (mounted) {
       setState(() => _biometricAvailable = canCheck && isSupported);
     }
-    if (!widget.isNewUser && _biometricAvailable && mounted) {
+    if (!widget.needsPinSetup && _biometricAvailable && mounted) {
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
         context.read<AuthBloc>().add(AuthBiometricRequested());
@@ -62,7 +62,7 @@ class _PinScreenState extends State<PinScreen> {
 
   void _submitPin() {
     final pin = _pin.join();
-    if (widget.isNewUser) {
+    if (widget.needsPinSetup) {
       context.read<AuthBloc>().add(AuthPinFirstEntry(pin));
     } else {
       context.read<AuthBloc>().add(AuthPinSubmitted(pin));
@@ -124,8 +124,8 @@ class _PinScreenState extends State<PinScreen> {
                     const Spacer(),
                     Center(
                       child: Text(
-                        widget.isNewUser
-                            ? 'Set Your PIN'
+                        widget.needsPinSetup
+                            ? 'Create a PIN'
                             : 'Enter Your PIN To Proceed',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
@@ -152,12 +152,12 @@ class _PinScreenState extends State<PinScreen> {
                         onKey: _onKey,
                         onDelete: _onDelete,
                         showBiometric:
-                            _biometricAvailable && !widget.isNewUser,
+                            _biometricAvailable && !widget.needsPinSetup,
                         onBiometric: () =>
                             context.read<AuthBloc>().add(AuthBiometricRequested()),
                       ),
                     const SizedBox(height: 16),
-                    if (!_isLoading && !widget.isNewUser)
+                    if (!_isLoading && !widget.needsPinSetup)
                       Center(
                         child: TextButton(
                           onPressed: () {

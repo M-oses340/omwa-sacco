@@ -78,12 +78,14 @@ class _PinScreenState extends State<PinScreen> {
       listener: (context, state) {
         if (state is AuthLoading) {
           setState(() => _isLoading = true);
-        } else {
+        } else if (state is AuthError || state is AuthPinEntry) {
           setState(() {
             _isLoading = false;
-            if (state is AuthError || state is AuthPinEntry) _pin.clear();
+            _pin.clear();
           });
         }
+        // AuthAuthenticated / AuthPinConfirm etc. — let the router handle it,
+        // don't touch local state to avoid a flash back to the PIN pad.
       },
       child: Scaffold(
         body: SafeArea(

@@ -19,10 +19,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthPhoneEntry) {
-          _showEmailSheet(context);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showEmailSheet(context);
+          });
         } else if (state is AuthOtpEntry) {
+          final email = state.email;
           Navigator.of(context).popUntil((r) => r.isFirst);
-          _showOtpSheet(context, state.email);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showOtpSheet(context, email);
+          });
         }
       },
       child: Scaffold(
@@ -126,25 +131,27 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _showEmailSheet(BuildContext ctx) {
+    final bloc = ctx.read<AuthBloc>();
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
-        value: ctx.read<AuthBloc>(),
+        value: bloc,
         child: const _EmailSheet(),
       ),
     );
   }
 
   void _showOtpSheet(BuildContext ctx, String email) {
+    final bloc = ctx.read<AuthBloc>();
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
       isDismissible: false,
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
-        value: ctx.read<AuthBloc>(),
+        value: bloc,
         child: _OtpSheet(email: email),
       ),
     );
@@ -353,8 +360,9 @@ class _OtpSheetState extends State<_OtpSheet> {
               children: [
                 TextButton(
                   onPressed: () {
+                    final bloc = context.read<AuthBloc>();
                     Navigator.of(context).pop();
-                    context.read<AuthBloc>().add(AuthNavigateToPhone());
+                    bloc.add(AuthNavigateToPhone());
                   },
                   child: const Text('Wrong email?'),
                 ),

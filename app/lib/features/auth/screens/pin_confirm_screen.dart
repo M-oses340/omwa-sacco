@@ -61,29 +61,41 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
       child: Scaffold(
         body: SafeArea(
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: AuthHeader(),
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height -
+                        MediaQuery.of(context).padding.top -
+                        MediaQuery.of(context).padding.bottom,
                   ),
-                  const Spacer(),
-                  Center(
-                    child: Text('Confirm Your PIN',
-                        style: Theme.of(context).textTheme.titleMedium),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: AuthHeader(),
+                        ),
+                        const Spacer(),
+                        Center(
+                          child: Text('Confirm Your PIN',
+                              style: Theme.of(context).textTheme.titleMedium),
+                        ),
+                        const SizedBox(height: 24),
+                        PinDots(filled: _pin.length, total: _pinLength),
+                        const SizedBox(height: 32),
+                        PinPad(
+                          isDark: isDark,
+                          onKey: _onKey,
+                          onDelete: _onDelete,
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  PinDots(filled: _pin.length, total: _pinLength),
-                  const SizedBox(height: 32),
-                  PinPad(
-                    isDark: isDark,
-                    onKey: _onKey,
-                    onDelete: _onDelete,
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                ),
               ),
               if (_isLoading)
                 Container(

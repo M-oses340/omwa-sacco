@@ -67,6 +67,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       child: Listener(
         onPointerDown: (_) => _resetTimer(),
         child: BlocConsumer<AuthBloc, AuthState>(
+          listenWhen: (_, current) => current is AuthError,
           listener: (context, state) {
             if (state is AuthError) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -77,10 +78,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               );
             }
           },
+          // Don't rebuild the router screen while loading — let the
+          // active sheet/screen handle its own loading state.
+          buildWhen: (previous, current) => current is! AuthLoading && current is! AuthError,
           builder: (context, state) {
-            if (state is AuthLoading || state is AuthInitial) {
-              return const SplashScreen();
-            }
+            if (state is AuthLoading) return const SplashScreen();
+            if (state is AuthInitial) return const WelcomeScreen();
             // PhoneEntry and OtpEntry are handled as bottom sheets
             // inside WelcomeScreen — keep it as the base for those states.
             if (state is AuthPhoneEntry || state is AuthOtpEntry) {

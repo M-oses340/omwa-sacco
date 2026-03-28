@@ -21,7 +21,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Timer? _inactivityTimer;
   static const _timeout = Duration(minutes: 5);
   AuthBloc? _authBloc;
-  bool _sessionChecked = false;
 
   @override
   void initState() {
@@ -79,28 +78,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               );
             }
           },
-          // Only block rebuilds during loading AFTER the session has been
-          // checked — during initial load we want the splash screen.
-          buildWhen: (previous, current) {
-            // Reset on logout so the next session check shows splash again
-            if (current is AuthInitial) {
-              _sessionChecked = false;
-              return true;
-            }
-            if (current is AuthLoading && _sessionChecked) return false;
-            if (current is AuthError) return false;
-            if (current is! AuthLoading && current is! AuthInitial) {
-              _sessionChecked = true;
-            }
-            return true;
-          },
           builder: (context, state) {
-            if (state is AuthLoading || state is AuthInitial) {
+            if (state is AuthInitial || state is AuthLoading) {
               return const SplashScreen();
             }
-            // PhoneEntry and OtpEntry are handled as bottom sheets
-            // inside WelcomeScreen — keep it as the base for those states.
-            if (state is AuthPhoneEntry || state is AuthOtpEntry) {
+            if (state is AuthUnauthenticated ||
+                state is AuthPhoneEntry ||
+                state is AuthOtpEntry) {
               return const WelcomeScreen();
             }
             if (state is AuthPinEntry) {

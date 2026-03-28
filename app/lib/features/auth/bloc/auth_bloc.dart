@@ -33,49 +33,52 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onCheckSession(
       AuthCheckSession event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    final session = _supabase.auth.currentSession;
-    if (session == null) {
-      emit(AuthInitial());
-      return;
-    }
-    final user = session.user;
-
-    // Check lockout
-    final lockoutStr = await _storage.read(key: 'pin_lockout_${user.id}');
-    if (lockoutStr != null) {
-      final unlocksAt = DateTime.tryParse(lockoutStr);
-      if (unlocksAt != null && DateTime.now().isBefore(unlocksAt)) {
-        emit(AuthPinLocked(unlocksAt));
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(AuthUnauthenticated());
         return;
-      } else {
-        await _storage.delete(key: 'pin_lockout_${user.id}');
-        await _storage.delete(key: 'pin_attempts_${user.id}');
       }
-    }
+      final user = session.user;
 
-    var storedPin = await _storage.read(key: 'user_pin_${user.id}');
+      // Check lockout
+      final lockoutStr = await _storage.read(key: 'pin_lockout_${user.id}');
+      if (lockoutStr != null) {
+        final unlocksAt = DateTime.tryParse(lockoutStr);
+        if (unlocksAt != null && DateTime.now().isBefore(unlocksAt)) {
+          emit(AuthPinLocked(unlocksAt));
+          return;
+        } else {
+          await _storage.delete(key: 'pin_lockout_${user.id}');
+          await _storage.delete(key: 'pin_attempts_${user.id}');
+        }
+      }
 
-    // One-time migration: if the stored PIN is plaintext (not a 64-char SHA-256
-    // hash), wipe it so the user is prompted to set a new hashed PIN.
-    if (storedPin != null && !RegExp(r'^[a-f0-9]{64}$').hasMatch(storedPin)) {
-      await _storage.delete(key: 'user_pin_${user.id}');
-      storedPin = null;
-    }
+      var storedPin = await _storage.read(key: 'user_pin_${user.id}');
 
-    if (storedPin == null) {
-      // Fetch member name so the PIN setup screen can greet them properly
-      final memberData = await _supabase
-          .from('members')
-          .select('full_name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-      emit(AuthPinEntry(
-        needsPinSetup: true,
-        memberName: memberData?['full_name'],
-      ));
-      return;
+      // One-time migration: plaintext PIN → wipe and re-setup
+      if (storedPin != null &&
+          !RegExp(r'^[a-f0-9]{64}$').hasMatch(storedPin)) {
+        await _storage.delete(key: 'user_pin_${user.id}');
+        storedPin = null;
+      }
+
+      if (storedPin == null) {
+        final memberData = await _supabase
+            .from('members')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        emit(AuthPinEntry(
+          needsPinSetup: true,
+          memberName: memberData?['full_name'],
+        ));
+        return;
+      }
+      emit(AuthPinEntry(needsPinSetup: false));
+    } catch (_) {
+      emit(AuthUnauthenticated());
     }
-    emit(AuthPinEntry(needsPinSetup: false));
   }
 
   Future<void> _onEmailSubmitted(
@@ -143,7 +146,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      // Use DB function to generate member number atomically
       await _supabase.rpc('create_member', params: {
         'p_user_id': user.id,
         'p_full_name': event.fullName,
@@ -225,8 +227,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           .single();
 
       emit(AuthAuthenticated(memberData));
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _onPinSetup(
@@ -327,13 +328,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'otp_verified': true,
         'last_used_at': DateTime.now().toIso8601String(),
       }, onConflict: 'member_id,device_id');
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _onLogout(
       AuthLogoutRequested event, Emitter<AuthState> emit) async {
     await _supabase.auth.signOut();
-    emit(AuthInitial());
+    emit(AuthUnauthenticated());
   }
 }

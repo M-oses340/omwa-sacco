@@ -42,29 +42,31 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          height: _isOffline ? 36 : 0,
-          color: cs.error,
-          child: _isOffline
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.wifi_off, color: cs.onError, size: 16),
-                    const SizedBox(width: 8),
-                    Text('No internet connection',
-                        style: TextStyle(
-                            color: cs.onError,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                )
-              : const SizedBox.shrink(),
-        ),
-        Expanded(child: widget.child),
-      ],
+    return Material(
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _isOffline ? 36 : 0,
+            color: cs.error,
+            child: _isOffline
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.wifi_off, color: cs.onError, size: 16),
+                      const SizedBox(width: 8),
+                      Text('No internet connection',
+                          style: TextStyle(
+                              color: cs.onError,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Expanded(child: widget.child),
+        ],
+      ),
     );
   }
 }

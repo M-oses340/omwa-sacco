@@ -82,6 +82,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           // Only block rebuilds during loading AFTER the session has been
           // checked — during initial load we want the splash screen.
           buildWhen: (previous, current) {
+            // Reset on logout so the next session check shows splash again
+            if (current is AuthInitial) {
+              _sessionChecked = false;
+              return true;
+            }
             if (current is AuthLoading && _sessionChecked) return false;
             if (current is AuthError) return false;
             if (current is! AuthLoading && current is! AuthInitial) {

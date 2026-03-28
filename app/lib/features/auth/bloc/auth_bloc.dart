@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -33,8 +32,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onCheckSession(
       AuthCheckSession event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
     final session = _supabase.auth.currentSession;
-    debugPrint('[AUTH] Checking session: ${session != null ? 'found' : 'none'}');
     if (session == null) {
       emit(AuthInitial());
       return;
@@ -59,7 +58,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     // One-time migration: if the stored PIN is plaintext (not a 64-char SHA-256
     // hash), wipe it so the user is prompted to set a new hashed PIN.
     if (storedPin != null && !RegExp(r'^[a-f0-9]{64}$').hasMatch(storedPin)) {
-      debugPrint('[AUTH] Migrating plaintext PIN — clearing for re-setup');
       await _storage.delete(key: 'user_pin_${user.id}');
       storedPin = null;
     }
@@ -77,19 +75,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ));
       return;
     }
-    debugPrint('[AUTH] Existing session found for user: ${user.id}');
     emit(AuthPinEntry(needsPinSetup: false));
   }
 
   Future<void> _onEmailSubmitted(
       AuthEmailSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    debugPrint('[AUTH] Sending OTP to email: ${event.email}');
     try {
       await ConnectivityService.instance.guard(
         () => _supabase.auth.signInWithOtp(email: event.email),
       );
-      debugPrint('[AUTH] OTP sent successfully to: ${event.email}');
       emit(AuthOtpEntry(event.email));
     } on AuthException catch (e) {
       emit(AuthError('Failed to send OTP: ${e.message}'));
@@ -101,7 +96,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onOtpSubmitted(
       AuthOtpSubmitted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    debugPrint('[AUTH] Verifying OTP for email: ${event.email}');
     try {
       final response = await ConnectivityService.instance.guard(
         () => _supabase.auth.verifyOTP(
@@ -150,7 +144,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       // Use DB function to generate member number atomically
-      final result = await _supabase.rpc('create_member', params: {
+      await _supabase.rpc('create_member', params: {
         'p_user_id': user.id,
         'p_full_name': event.fullName,
         'p_national_id': event.nationalId,
@@ -158,12 +152,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'p_email': user.email,
       });
 
-      final memberNumber = result as String;
-      debugPrint('[REGISTER] Member created with number: $memberNumber');
-
       emit(AuthPinEntry(needsPinSetup: true));
     } on PostgrestException catch (e) {
-      debugPrint('[REGISTER] PostgrestException: ${e.message}');
       emit(AuthError('Registration failed: ${e.message}'));
     } catch (e) {
       emit(AuthError('Registration failed: ${e.toString()}'));
@@ -236,7 +226,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       emit(AuthAuthenticated(memberData));
     } catch (e) {
-      debugPrint('[BIOMETRIC] Error: $e');
     }
   }
 
@@ -339,7 +328,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'last_used_at': DateTime.now().toIso8601String(),
       }, onConflict: 'member_id,device_id');
     } catch (e) {
-      debugPrint('Device registration failed: $e');
     }
   }
 

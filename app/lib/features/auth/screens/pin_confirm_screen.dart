@@ -51,51 +51,56 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
       listener: (context, state) {
         if (state is AuthLoading) {
           setState(() => _isLoading = true);
-        } else {
+        } else if (state is AuthError) {
           setState(() => _isLoading = false);
-          if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.redAccent));
-          }
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.redAccent));
         }
       },
       child: Scaffold(
         body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: AuthHeader(),
-              ),
-              const Spacer(),
-              Center(
-                child: Text('Confirm Your PIN',
-                    style: Theme.of(context).textTheme.titleMedium),
-              ),
-              const SizedBox(height: 24),
-              PinDots(filled: _pin.length, total: _pinLength),
-              const SizedBox(height: 32),
-              if (_isLoading)
-                Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(color: cs.primary),
-                      const SizedBox(height: 12),
-                      Text('Setting up your PIN...',
-                          style: TextStyle(
-                              color: cs.onSurface.withValues(alpha: 0.6))),
-                    ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: AuthHeader(),
                   ),
-                )
-              else
-                PinPad(
-                  isDark: isDark,
-                  onKey: _onKey,
-                  onDelete: _onDelete,
+                  const Spacer(),
+                  Center(
+                    child: Text('Confirm Your PIN',
+                        style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  const SizedBox(height: 24),
+                  PinDots(filled: _pin.length, total: _pinLength),
+                  const SizedBox(height: 32),
+                  PinPad(
+                    isDark: isDark,
+                    onKey: _onKey,
+                    onDelete: _onDelete,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+              if (_isLoading)
+                Container(
+                  color: cs.surface.withValues(alpha: 0.85),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: cs.primary),
+                        const SizedBox(height: 12),
+                        Text('Setting up your PIN...',
+                            style: TextStyle(
+                                color: cs.onSurface.withValues(alpha: 0.6))),
+                      ],
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 40),
             ],
           ),
         ),

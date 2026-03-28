@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -209,16 +211,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 20),
                     Row(
                       children: [
-                        CircleAvatar(
+                        _GravatarAvatar(
+                          email: widget.member['email'] ?? '',
+                          fallback: name.isNotEmpty ? name[0].toUpperCase() : 'M',
                           radius: 28,
-                          backgroundColor: cs.onPrimary.withValues(alpha: 0.2),
-                          child: Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'M',
-                            style: TextStyle(
-                                color: cs.onPrimary,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold),
-                          ),
+                          onPrimaryColor: cs.onPrimary,
                         ),
                         const SizedBox(width: 14),
                         Column(
@@ -612,4 +609,54 @@ class _TransactionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GravatarAvatar extends StatelessWidget {
+  final String email;
+  final String fallback;
+  final double radius;
+  final Color onPrimaryColor;
+
+  const _GravatarAvatar({
+    required this.email,
+    required this.fallback,
+    required this.radius,
+    required this.onPrimaryColor,
+  });
+
+  String _gravatarUrl(String email) {
+    final hash = md5.convert(utf8.encode(email.trim().toLowerCase())).toString();
+    final size = (radius * 2).toInt();
+    return 'https://www.gravatar.com/avatar/$hash?s=$size&d=404';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final url = email.isNotEmpty ? _gravatarUrl(email) : null;
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: onPrimaryColor.withValues(alpha: 0.2),
+      child: ClipOval(
+        child: url != null
+            ? Image.network(
+                url,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _fallbackText(cs),
+              )
+            : _fallbackText(cs),
+      ),
+    );
+  }
+
+  Widget _fallbackText(ColorScheme cs) => Text(
+        fallback,
+        style: TextStyle(
+            color: cs.onPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.bold),
+      );
 }

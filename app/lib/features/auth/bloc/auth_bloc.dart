@@ -54,9 +54,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     }
 
-    final storedPin = await _storage.read(key: 'user_pin_${user.id}');
+    var storedPin = await _storage.read(key: 'user_pin_${user.id}');
+
+    // One-time migration: if the stored PIN is plaintext (not a 64-char SHA-256
+    // hash), wipe it so the user is prompted to set a new hashed PIN.
+    if (storedPin != null && !RegExp(r'^[a-f0-9]{64}$').hasMatch(storedPin)) {
+      debugPrint('[AUTH] Migrating plaintext PIN — clearing for re-setup');
+      await _storage.delete(key: 'user_pin_${user.id}');
+      storedPin = null;
+    }
+
     if (storedPin == null) {
-      emit(AuthInitial());
+      // Fetch member name so the PIN setup screen can greet them properly
+      final memberData = await _supabase
+          .from('members')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      emit(AuthPinEntry(
+        needsPinSetup: true,
+        memberName: memberData?['full_name'],
+      ));
       return;
     }
     debugPrint('[AUTH] Existing session found for user: ${user.id}');

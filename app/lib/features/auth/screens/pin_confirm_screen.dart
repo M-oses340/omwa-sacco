@@ -80,7 +80,7 @@ class _PinConfirmScreenState extends State<PinConfirmScreen> {
                         ),
                         const Spacer(),
                         Center(
-                          child: Text('Confirm Your PIN',
+                          child: Text('Confirm your device PIN',
                               style: Theme.of(context).textTheme.titleMedium),
                         ),
                         const SizedBox(height: 24),

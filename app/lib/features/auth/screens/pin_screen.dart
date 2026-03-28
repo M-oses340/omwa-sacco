@@ -129,7 +129,7 @@ class _PinScreenState extends State<PinScreen> {
                         Center(
                           child: Text(
                             widget.needsPinSetup
-                                ? 'Create a PIN'
+                                ? 'Set up your device PIN'
                                 : 'Enter Your PIN To Proceed',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),

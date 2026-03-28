@@ -140,6 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Container(
@@ -152,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Column(
                   children: [
                     Row(
@@ -243,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Fixed: account cards + quick actions
           if (!_loading)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -273,13 +274,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                   Text('Quick Actions',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -317,7 +318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onTap: () {}),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),

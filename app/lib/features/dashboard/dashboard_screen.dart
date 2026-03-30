@@ -613,7 +613,7 @@ class _TransactionTile extends StatelessWidget {
   }
 }
 
-class _GravatarAvatar extends StatelessWidget {
+class _GravatarAvatar extends StatefulWidget {
   final String? photoUrl;
   final String email;
   final String fallback;
@@ -628,44 +628,47 @@ class _GravatarAvatar extends StatelessWidget {
     required this.onPrimaryColor,
   });
 
+  @override
+  State<_GravatarAvatar> createState() => _GravatarAvatarState();
+}
+
+class _GravatarAvatarState extends State<_GravatarAvatar> {
+  bool _imageError = false;
+
   String _gravatarUrl(String email) {
-    final hash = md5.convert(utf8.encode(email.trim().toLowerCase())).toString();
-    final size = (radius * 2).toInt();
-    return 'https://www.gravatar.com/avatar/$hash?s=$size&d=404';
+    final hash =
+        md5.convert(utf8.encode(email.trim().toLowerCase())).toString();
+    final size = (widget.radius * 4).toInt();
+    return 'https://www.gravatar.com/avatar/$hash?s=$size&d=identicon&f=y';
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    // Priority: profile_photo_url → Gravatar → initial letter
-    final imageUrl = (photoUrl != null && photoUrl!.isNotEmpty)
-        ? photoUrl!
-        : email.isNotEmpty
-            ? _gravatarUrl(email)
-            : null;
+    final imageUrl = !_imageError
+        ? ((widget.photoUrl != null && widget.photoUrl!.isNotEmpty)
+            ? widget.photoUrl!
+            : widget.email.isNotEmpty
+                ? _gravatarUrl(widget.email)
+                : null)
+        : null;
 
     return CircleAvatar(
-      radius: radius,
-      backgroundColor: onPrimaryColor.withValues(alpha: 0.2),
-      child: ClipOval(
-        child: imageUrl != null
-            ? Image.network(
-                imageUrl,
-                width: radius * 2,
-                height: radius * 2,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallbackText(cs),
-              )
-            : _fallbackText(cs),
-      ),
+      radius: widget.radius,
+      backgroundColor: widget.onPrimaryColor.withValues(alpha: 0.2),
+      backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+      onBackgroundImageError: imageUrl != null
+          ? (_, __) => setState(() => _imageError = true)
+          : null,
+      child: imageUrl == null || _imageError
+          ? Text(
+              widget.fallback,
+              style: TextStyle(
+                  color: cs.onPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold),
+            )
+          : null,
     );
   }
-
-  Widget _fallbackText(ColorScheme cs) => Text(
-        fallback,
-        style: TextStyle(
-            color: cs.onPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.bold),
-      );
 }

@@ -45,4 +45,6 @@ class AuthRegisterSubmitted extends AuthEvent {
   });
 }
 
+class AuthGoogleSignInRequested extends AuthEvent {}
+
 class AuthLogoutRequested extends AuthEvent {}

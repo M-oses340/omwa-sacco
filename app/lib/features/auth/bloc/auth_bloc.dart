@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -27,6 +28,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthPinSubmitted>(_onPinSubmitted);
     on<AuthBiometricRequested>(_onBiometricRequested);
     on<AuthPinSetup>(_onPinSetup);
+    on<AuthGoogleSignInRequested>(_onGoogleSignIn);
     on<AuthLogoutRequested>(_onLogout);
   }
 
@@ -328,6 +330,74 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         'last_used_at': DateTime.now().toIso8601String(),
       }, onConflict: 'member_id,device_id');
     } catch (_) {}
+  }
+
+  Future<void> _onGoogleSignIn(
+      AuthGoogleSignInRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      await GoogleSignIn.instance.initialize(
+        serverClientId:
+            'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+      );
+
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final authTokens = googleUser.authentication;
+      final idToken = authTokens.idToken;
+
+      if (idToken == null) {
+        emit(AuthError('Google sign-in failed: no ID token'));
+        return;
+      }
+
+      await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        emit(AuthError('Google sign-in failed'));
+        return;
+      }
+
+      final avatarUrl = user.userMetadata?['avatar_url'] as String?;
+
+      var memberData = await _supabase
+          .from('members')
+          .select()
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (memberData == null) {
+        emit(AuthRegistration());
+        return;
+      }
+
+      // Sync Google avatar if member has none
+      if (avatarUrl != null &&
+          (memberData['profile_photo_url'] == null ||
+              (memberData['profile_photo_url'] as String).isEmpty)) {
+        await _supabase
+            .from('members')
+            .update({'profile_photo_url': avatarUrl}).eq('user_id', user.id);
+        memberData = {...memberData, 'profile_photo_url': avatarUrl};
+      }
+
+      final storedPin = await _storage.read(key: 'user_pin_${user.id}');
+      emit(AuthPinEntry(
+        needsPinSetup: storedPin == null,
+        memberName: memberData['full_name'],
+      ));
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        emit(AuthUnauthenticated());
+      } else {
+        emit(AuthError('Google sign-in failed: ${e.code.name}'));
+      }
+    } catch (e) {
+      emit(AuthError('Google sign-in failed: ${e.toString()}'));
+    }
   }
 
   Future<void> _onLogout(

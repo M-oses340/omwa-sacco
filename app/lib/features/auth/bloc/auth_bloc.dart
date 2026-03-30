@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -374,7 +375,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      // Sync Google avatar if member has none
       if (avatarUrl != null &&
           (memberData['profile_photo_url'] == null ||
               (memberData['profile_photo_url'] as String).isEmpty)) {
@@ -395,6 +395,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       } else {
         emit(AuthError('Google sign-in failed: ${e.code.name}'));
       }
+    } on MissingPluginException {
+      emit(AuthError(
+          'Google sign-in is not configured yet. Please use email/OTP.'));
     } catch (e) {
       emit(AuthError('Google sign-in failed: ${e.toString()}'));
     }

@@ -311,12 +311,10 @@ class _EmailSheetState extends State<_EmailSheet> {
                       : () => context
                           .read<AuthBloc>()
                           .add(AuthGoogleSignInRequested()),
-                  icon: Image.network(
-                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                  icon: Image.asset(
+                    'assets/images/google_logo.png',
                     width: 20,
                     height: 20,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.g_mobiledata, size: 24),
                   ),
                   label: const Text('Continue with Google',
                       style: TextStyle(

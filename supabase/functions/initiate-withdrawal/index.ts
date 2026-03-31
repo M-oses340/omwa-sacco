@@ -1,15 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-// @deno-types="npm:intasend-node"
-import IntaSend from 'npm:intasend-node'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
+const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
+const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
+  ? 'https://sandbox.intasend.com/api/v1'
+  : 'https://payment.intasend.com/api/v1'
+
 Deno.serve(async (req) => {
   try {
-    // Verify auth
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Unauthorized' }, 401)
 
@@ -26,7 +28,6 @@ Deno.serve(async (req) => {
       return json({ error: 'Phone number required for M-Pesa withdrawal' }, 400)
     }
 
-    // Get member
     const { data: member } = await supabase
       .from('members')
       .select('id, full_name')
@@ -35,7 +36,6 @@ Deno.serve(async (req) => {
 
     if (!member) return json({ error: 'Member not found' }, 404)
 
-    // Get FOSA account and check balance
     const { data: fosa } = await supabase
       .from('fosa_accounts')
       .select('id, balance')
@@ -62,29 +62,32 @@ Deno.serve(async (req) => {
         ? `254${phone.slice(1)}`
         : phone
 
-      const isSandbox = Deno.env.get('INTASEND_SANDBOX') === 'true'
-      const intasend = new IntaSend(
-        Deno.env.get('INTASEND_PUBLISHABLE_KEY')!,
-        Deno.env.get('INTASEND_SECRET_KEY')!,
-        isSandbox
-      )
-
-      const payouts = intasend.payouts()
-
-      console.log('[WITHDRAWAL] Initiating M-Pesa B2C to', normalised, 'amount', amount)
-
-      const response = await payouts.mpesa({
-        currency: 'KES',
-        requires_approval: 'NO',
-        transactions: [{
-          name: member.full_name,
-          account: normalised,
-          amount: amount.toString(),
-          narrative: 'FOSA withdrawal - Omwa Sacco',
-        }],
+      const res = await fetch(`${INTASEND_BASE}/send-money/initiate/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${INTASEND_SECRET}`,
+        },
+        body: JSON.stringify({
+          currency: 'KES',
+          provider: 'MPESA-B2C',
+          requires_approval: 'NO',
+          transactions: [{
+            name: member.full_name,
+            account: normalised,
+            amount: amount.toString(),
+            narrative: 'FOSA withdrawal - Omwa Sacco',
+          }],
+        }),
       })
 
-      console.log('[WITHDRAWAL] IntaSend response:', JSON.stringify(response))
+      const data = await res.json()
+      console.log('[WITHDRAWAL] IntaSend response:', JSON.stringify(data))
+
+      if (!res.ok) {
+        const errMsg = data?.errors?.[0]?.detail ?? 'M-Pesa withdrawal failed'
+        return json({ error: errMsg }, 400)
+      }
 
       // Deduct balance and record transaction
       await supabase
@@ -127,7 +130,7 @@ Deno.serve(async (req) => {
       return json({ success: true })
     }
   } catch (e) {
-    console.error('[WITHDRAWAL] Error:', e.message, e.stack)
+    console.error('[WITHDRAWAL] Error:', e.message)
     return json({ error: e.message }, 500)
   }
 })

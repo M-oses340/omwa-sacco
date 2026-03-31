@@ -27,7 +27,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _phoneController = TextEditingController();
-  String _method = 'mpesa';
 
   @override
   void dispose() {
@@ -39,12 +38,9 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.parse(_amountController.text.trim());
-    // ignore: avoid_print
-    print('[WITHDRAW] method=$_method amount=$amount phone=${_phoneController.text.trim()} memberId=${widget.member['id']}');
     context.read<TransactionBloc>().add(WithdrawInitiated(
           memberId: widget.member['id'],
           amount: amount,
-          method: _method,
           phoneNumber: _phoneController.text.trim(),
         ));
   }
@@ -82,7 +78,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Handle bar
                     Center(
                       child: Container(
                         width: 40,
@@ -94,7 +89,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                         ),
                       ),
                     ),
-                    // Title
                     Row(
                       children: [
                         Container(
@@ -113,45 +107,14 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                             Text('Withdraw from FOSA',
                                 style: tt.titleMedium
                                     ?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('M-Pesa or ATM',
+                            Text('Via M-Pesa',
                                 style: tt.bodySmall?.copyWith(
-                                    color:
-                                        cs.onSurface.withValues(alpha: 0.6))),
+                                    color: cs.onSurface.withValues(alpha: 0.6))),
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-
-                    // Method selector
-                    Text('Withdrawal method',
-                        style: tt.labelMedium?.copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.6))),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _MethodCard(
-                            label: 'M-Pesa',
-                            icon: Icons.phone_android,
-                            selected: _method == 'mpesa',
-                            onTap: () => setState(() => _method = 'mpesa'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _MethodCard(
-                            label: 'ATM',
-                            icon: Icons.credit_card,
-                            selected: _method == 'atm',
-                            onTap: () => setState(() => _method = 'atm'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Quick amounts
                     Text('Quick amounts',
                         style: tt.labelMedium?.copyWith(
                             color: cs.onSurface.withValues(alpha: 0.6))),
@@ -167,8 +130,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       }).toList(),
                     ),
                     const SizedBox(height: 12),
-
-                    // Amount field
                     TextFormField(
                       controller: _amountController,
                       autofocus: true,
@@ -196,58 +157,27 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                       },
                     ),
                     const SizedBox(height: 12),
-
-                    // Phone field (M-Pesa only)
-                    if (_method == 'mpesa')
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: 'M-Pesa Phone Number',
-                          hintText: '07XXXXXXXX',
-                          prefixIcon: const Icon(Icons.phone),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                        validator: (v) {
-                          if (_method != 'mpesa') return null;
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Enter phone number';
-                          }
-                          if (!RegExp(r'^(?:\+254|0)[17]\d{8}$')
-                              .hasMatch(v.trim())) {
-                            return 'Enter a valid Kenyan phone number';
-                          }
-                          return null;
-                        },
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'M-Pesa Phone Number',
+                        hintText: '07XXXXXXXX',
+                        prefixIcon: const Icon(Icons.phone),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-
-                    if (_method == 'atm')
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: Colors.orange.withValues(alpha: 0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.info_outline,
-                                color: Colors.orange, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Funds will be deducted immediately. Collect at any ATM using your card.',
-                                style: tt.bodySmall?.copyWith(
-                                    color:
-                                        cs.onSurface.withValues(alpha: 0.7)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Enter phone number';
+                        }
+                        if (!RegExp(r'^(?:\+254|0)[17]\d{8}$')
+                            .hasMatch(v.trim())) {
+                          return 'Enter a valid Kenyan phone number';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
@@ -262,7 +192,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                                     color: cs.onPrimary, strokeWidth: 2))
                             : const Icon(Icons.arrow_upward),
                         label: Text(
-                          isLoading ? 'Processing...' : 'Withdraw',
+                          isLoading ? 'Processing...' : 'Withdraw via M-Pesa',
                           style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -280,60 +210,6 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _MethodCard extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _MethodCard({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? cs.primary.withValues(alpha: 0.1)
-              : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? cs.primary : Colors.transparent,
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon,
-                color: selected
-                    ? cs.primary
-                    : cs.onSurface.withValues(alpha: 0.5),
-                size: 24),
-            const SizedBox(height: 4),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.normal,
-                    color: selected
-                        ? cs.primary
-                        : cs.onSurface.withValues(alpha: 0.7))),
-          ],
         ),
       ),
     );

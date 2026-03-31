@@ -61,7 +61,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     emit(TransactionLoading());
     try {
       final session = _supabase.auth.currentSession;
-      debugPrint('[WITHDRAW] method=${event.method} amount=${event.amount} phone=${event.phoneNumber}');
+      debugPrint('[WITHDRAW] amount=${event.amount} phone=${event.phoneNumber}');
       if (session == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
@@ -81,49 +81,24 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return;
       }
 
-      if (event.method == 'mpesa') {
-        // Initiate M-Pesa STK push withdrawal via edge function
-        final response = await ConnectivityService.instance.guard(() =>
-            _supabase.functions.invoke(
-              'initiate-withdrawal',
-              body: {
-                'amount': event.amount,
-                'phone': event.phoneNumber,
-                'method': 'mpesa',
-              },
-              headers: {'Authorization': 'Bearer ${session.accessToken}'},
-            ));
+      final response = await ConnectivityService.instance.guard(() =>
+          _supabase.functions.invoke(
+            'initiate-withdrawal',
+            body: {
+              'amount': event.amount,
+              'phone': event.phoneNumber,
+              'method': 'mpesa',
+            },
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ));
 
-        final data = response.data as Map<String, dynamic>;
-        debugPrint('[WITHDRAW] Edge function response: $data');
-        if (data['success'] == true) {
-          emit(TransactionSuccess(
-              'Withdrawal of KES ${event.amount.toStringAsFixed(2)} to ${event.phoneNumber} is being processed.'));
-        } else {
-          emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
-        }
-      } else {
-        // ATM — record pending withdrawal, user collects at ATM
-        final newBalance = balance - event.amount;
-        await ConnectivityService.instance.guard(() async {
-          await _supabase
-              .from('fosa_accounts')
-              .update({'balance': newBalance}).eq('id', fosa['id']);
-
-          await _supabase.from('transactions').insert({
-            'member_id': event.memberId,
-            'account_type': 'fosa',
-            'transaction_type': 'withdrawal',
-            'amount': event.amount,
-            'balance_before': balance,
-            'balance_after': newBalance,
-            'description': 'ATM withdrawal',
-            'status': 'completed',
-          });
-        });
-
+      final data = response.data as Map<String, dynamic>;
+      debugPrint('[WITHDRAW] Edge function response: $data');
+      if (data['success'] == true) {
         emit(TransactionSuccess(
-            'ATM withdrawal of KES ${event.amount.toStringAsFixed(2)} approved. Collect at any ATM.'));
+            'Withdrawal of KES ${event.amount.toStringAsFixed(2)} to ${event.phoneNumber} is being processed.'));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
       }
     } on FunctionException catch (e) {
       debugPrint('[WITHDRAW] FunctionException: ${e.details}');

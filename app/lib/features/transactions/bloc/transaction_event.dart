@@ -17,12 +17,10 @@ class CheckoutCompleted extends TransactionEvent {
 class WithdrawInitiated extends TransactionEvent {
   final String memberId;
   final double amount;
-  final String method; // 'mpesa' | 'atm'
-  final String phoneNumber; // for M-Pesa
+  final String phoneNumber;
   WithdrawInitiated({
     required this.memberId,
     required this.amount,
-    required this.method,
     required this.phoneNumber,
   });
 }

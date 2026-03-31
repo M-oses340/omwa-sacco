@@ -94,11 +94,14 @@ function calcRepayment(product: LoanProduct, principal: number, months: number) 
 Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get('Authorization')
+    console.log('[LOAN] Auth header present:', !!authHeader)
     if (!authHeader) return json({ error: 'Unauthorized' }, 401)
 
     const token = authHeader.replace('Bearer ', '')
+    console.log('[LOAN] Token length:', token.length)
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+    console.log('[LOAN] Auth user:', user?.id ?? 'null', 'error:', authError?.message ?? 'none')
+    if (authError || !user) return json({ error: 'Unauthorized', detail: authError?.message }, 401)
 
     const { data: member } = await supabase
       .from('members')

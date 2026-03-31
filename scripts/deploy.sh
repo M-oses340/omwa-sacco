@@ -17,7 +17,7 @@ deploy_supabase_functions() {
     func_name=$(basename "$dir")
     if [ -f "$dir/index.ts" ]; then
       echo "  → Deploying $func_name"
-      supabase functions deploy "$func_name"
+      supabase functions deploy "$func_name" --no-verify-jwt
     fi
   done
   echo "✅ Supabase functions deployed"

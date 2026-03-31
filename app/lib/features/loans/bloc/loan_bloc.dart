@@ -19,6 +19,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanHistoryRequested event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
+      debugPrint('[LOAN] Fetching history for member: ${event.memberId}');
       final data = await ConnectivityService.instance.guard(() => _supabase
           .from('loans')
           .select()
@@ -28,6 +29,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       final loans = (data as List)
           .map((e) => LoanModel.fromMap(e as Map<String, dynamic>))
           .toList();
+      debugPrint('[LOAN] Loaded ${loans.length} loan(s)');
       emit(LoanHistoryLoaded(loans));
     } catch (e) {
       debugPrint('[LOAN] History error: $e');
@@ -45,31 +47,40 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
         return;
       }
 
+      final payload = {
+        'action': 'apply',
+        'loan_type': event.loanType,
+        'principal': event.principal,
+        'duration_months': event.durationMonths,
+        'purpose': event.purpose,
+      };
+      debugPrint('[LOAN] Submitting application: $payload');
+
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
             'process-loan',
-            body: {
-              'action': 'apply',
-              'loan_type': event.loanType,
-              'principal': event.principal,
-              'duration_months': event.durationMonths,
-              'purpose': event.purpose,
-            },
+            body: payload,
             headers: {'Authorization': 'Bearer ${session.accessToken}'},
           ));
+
+      debugPrint('[LOAN] Response status: ${response.status}');
+      debugPrint('[LOAN] Response data: ${response.data}');
 
       final data = response.data as Map<String, dynamic>;
       if (data['success'] == true) {
         final loan = LoanModel.fromMap(data['loan'] as Map<String, dynamic>);
+        debugPrint('[LOAN] Application success — loan #${loan.loanNumber}');
         emit(LoanApplicationSuccess(loan));
       } else {
+        debugPrint('[LOAN] Application rejected: ${data['error']}');
         emit(LoanError(data['error'] ?? 'Failed to submit application'));
       }
     } on FunctionException catch (e) {
-      debugPrint('[LOAN] Function error: ${e.details}');
+      debugPrint('[LOAN] FunctionException status: ${e.status}');
+      debugPrint('[LOAN] FunctionException details: ${e.details}');
       emit(LoanError('Service error. Please try again.'));
     } catch (e) {
-      debugPrint('[LOAN] Error: $e');
+      debugPrint('[LOAN] Unexpected error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }

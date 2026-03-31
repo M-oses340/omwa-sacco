@@ -1,12 +1,18 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import IntaSend from 'npm:intasend-node'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-Deno.serve(async (req) => {
+const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
+const INTASEND_PUB = Deno.env.get('INTASEND_PUBLISHABLE_KEY')!
+const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
+  ? 'https://sandbox.intasend.com/api/v1'
+  : 'https://payment.intasend.com/api/v1'
+
+Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Unauthorized' }, 401)
@@ -22,7 +28,7 @@ Deno.serve(async (req) => {
 
     const { data: member } = await supabase
       .from('members')
-      .select('id, full_name, email, phone_number')
+      .select('id, full_name, email')
       .eq('user_id', user.id)
       .single()
 
@@ -30,7 +36,7 @@ Deno.serve(async (req) => {
 
     const { data: fosa } = await supabase
       .from('fosa_accounts')
-      .select('id, account_number')
+      .select('id')
       .eq('member_id', member.id)
       .single()
 
@@ -52,33 +58,39 @@ Deno.serve(async (req) => {
       .select('id')
       .single()
 
-    const isSandbox = Deno.env.get('INTASEND_SANDBOX') === 'true'
-    const intasend = new IntaSend(
-      Deno.env.get('INTASEND_PUBLISHABLE_KEY')!,
-      Deno.env.get('INTASEND_SECRET_KEY')!,
-      isSandbox
-    )
+    const nameParts = (member.full_name as string).split(' ')
+    const firstName = nameParts[0]
+    const lastName = nameParts.slice(1).join(' ') || ''
 
-    const collection = intasend.collection()
-
-    console.log('[CHECKOUT] Initiating checkout for KES', amount)
-
-    const response = await collection.charge({
-      first_name: member.full_name.split(' ')[0],
-      last_name: member.full_name.split(' ').slice(1).join(' ') || '',
-      email: member.email ?? '',
-      host: 'https://omwasacco.app',
-      amount,
-      currency: 'KES',
-      api_ref: reference,
-      redirect_url: 'https://omwasacco.app/payment/callback',
+    const res = await fetch(`${INTASEND_BASE}/checkout/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${INTASEND_SECRET}`,
+      },
+      body: JSON.stringify({
+        public_key: INTASEND_PUB,
+        amount,
+        currency: 'KES',
+        api_ref: reference,
+        email: member.email ?? '',
+        first_name: firstName,
+        last_name: lastName,
+        redirect_url: 'https://omwasacco.app/payment/callback',
+      }),
     })
 
-    console.log('[CHECKOUT] IntaSend response:', JSON.stringify(response))
+    const data = await res.json()
+    console.log('[CHECKOUT] IntaSend response:', JSON.stringify(data))
+
+    if (!res.ok) {
+      const errMsg = (data as any)?.errors?.[0]?.detail ?? 'Failed to initiate payment'
+      return json({ error: errMsg }, 500)
+    }
 
     return json({
       success: true,
-      checkout_url: response.url,
+      checkout_url: (data as any).url,
       transaction_id: tx!.id,
     })
   } catch (e) {

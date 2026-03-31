@@ -13,3 +13,16 @@ class CheckoutCompleted extends TransactionEvent {
   final bool success;
   CheckoutCompleted({required this.transactionId, required this.success});
 }
+
+class WithdrawInitiated extends TransactionEvent {
+  final String memberId;
+  final double amount;
+  final String method; // 'mpesa' | 'atm'
+  final String phoneNumber; // for M-Pesa
+  WithdrawInitiated({
+    required this.memberId,
+    required this.amount,
+    required this.method,
+    required this.phoneNumber,
+  });
+}

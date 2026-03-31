@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
 import '../transactions/screens/deposit_screen.dart';
+import '../transactions/screens/withdraw_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 
@@ -305,7 +306,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.arrow_upward,
                           label: 'Withdraw',
                           color: Colors.orange,
-                          onTap: () {}),
+                          onTap: () async {
+                            final ctx = context;
+                            final refreshed = await showWithdrawSheet(
+                                ctx, widget.member);
+                            if (refreshed == true) {
+                              _loadData();
+                              if (mounted) {
+                                // ignore: use_build_context_synchronously
+                                _showSuccessDialog(ctx,
+                                    'Your withdrawal is being processed.');
+                              }
+                            }
+                          }),
                       _QuickAction(
                           icon: Icons.swap_horiz,
                           label: 'Transfer',

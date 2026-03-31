@@ -12,6 +12,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   TransactionBloc() : super(TransactionInitial()) {
     on<DepositInitiated>(_onDepositInitiated);
     on<CheckoutCompleted>(_onCheckoutCompleted);
+    on<WithdrawInitiated>(_onWithdrawInitiated);
   }
 
   Future<void> _onDepositInitiated(
@@ -51,6 +52,80 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       emit(TransactionError('Payment service error. Please try again.'));
     } catch (e) {
       debugPrint('[TRANSACTION] Error: $e');
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onWithdrawInitiated(
+      WithdrawInitiated event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(TransactionError('Session expired. Please log in again.'));
+        return;
+      }
+
+      // Get FOSA account balance
+      final fosa = await ConnectivityService.instance.guard(() => _supabase
+          .from('fosa_accounts')
+          .select('id, balance, account_number')
+          .eq('member_id', event.memberId)
+          .single());
+
+      final balance = double.tryParse(fosa['balance'].toString()) ?? 0;
+      if (event.amount > balance) {
+        emit(TransactionError(
+            'Insufficient balance. Available: KES ${balance.toStringAsFixed(2)}'));
+        return;
+      }
+
+      if (event.method == 'mpesa') {
+        // Initiate M-Pesa STK push withdrawal via edge function
+        final response = await ConnectivityService.instance.guard(() =>
+            _supabase.functions.invoke(
+              'initiate-withdrawal',
+              body: {
+                'amount': event.amount,
+                'phone': event.phoneNumber,
+                'method': 'mpesa',
+              },
+              headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            ));
+
+        final data = response.data as Map<String, dynamic>;
+        if (data['success'] == true) {
+          emit(TransactionSuccess(
+              'Withdrawal of KES ${event.amount.toStringAsFixed(2)} to ${event.phoneNumber} is being processed.'));
+        } else {
+          emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
+        }
+      } else {
+        // ATM — record pending withdrawal, user collects at ATM
+        final newBalance = balance - event.amount;
+        await ConnectivityService.instance.guard(() async {
+          await _supabase
+              .from('fosa_accounts')
+              .update({'balance': newBalance}).eq('id', fosa['id']);
+
+          await _supabase.from('transactions').insert({
+            'member_id': event.memberId,
+            'account_type': 'fosa',
+            'transaction_type': 'withdrawal',
+            'amount': event.amount,
+            'balance_before': balance,
+            'balance_after': newBalance,
+            'description': 'ATM withdrawal',
+            'status': 'completed',
+          });
+        });
+
+        emit(TransactionSuccess(
+            'ATM withdrawal of KES ${event.amount.toStringAsFixed(2)} approved. Collect at any ATM.'));
+      }
+    } on FunctionException catch (e) {
+      emit(TransactionError('Service error: ${e.details}'));
+    } catch (e) {
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }

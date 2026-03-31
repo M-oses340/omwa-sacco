@@ -82,8 +82,8 @@ Deno.serve(async (req) => {
       transaction_id: tx!.id,
     })
   } catch (e) {
-    console.error('[CHECKOUT] Error:', e.message, e.stack)
-    return json({ error: e.message }, 500)
+    console.error('[CHECKOUT] Error:', (e as Error).message)
+    return json({ error: (e as Error).message }, 500)
   }
 })
 

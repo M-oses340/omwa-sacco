@@ -22,12 +22,11 @@ Deno.serve(async (req) => {
 
     // IntaSend webhook payload fields
     const {
-      invoice_id,    // IntaSend invoice ID
-      state,         // COMPLETE | FAILED | PENDING
-      net_amount,    // amount after fees
-      api_ref,       // our reference (DEP-timestamp)
-      mpesa_code,    // M-Pesa confirmation code if applicable
-      account,       // payer phone/account
+      invoice_id,
+      state,
+      net_amount,
+      api_ref,
+      mpesa_code,
     } = payload
 
     if (!api_ref) {
@@ -126,8 +125,9 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('[WEBHOOK] Error:', error.message)
-    return new Response(JSON.stringify({ error: error.message }), {
+    const err = error as Error
+    console.error('[WEBHOOK] Error:', err.message)
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })

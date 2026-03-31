@@ -107,8 +107,8 @@ Deno.serve(async (req) => {
 
     return json({ success: true })
   } catch (e) {
-    console.error('[WITHDRAWAL] Error:', e.message)
-    return json({ error: e.message }, 500)
+    console.error('[WITHDRAWAL] Error:', (e as Error).message)
+    return json({ error: (e as Error).message }, 500)
   }
 })
 

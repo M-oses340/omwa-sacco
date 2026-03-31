@@ -1,22 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import IntaSend from 'npm:intasend-node'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
-const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
-  ? 'https://sandbox.intasend.com/api/v1'
-  : 'https://payment.intasend.com/api/v1'
-
 Deno.serve(async (req) => {
   try {
-    // Verify auth
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return json({ error: 'Unauthorized' }, 401)
-    }
+    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
@@ -27,7 +20,6 @@ Deno.serve(async (req) => {
       return json({ error: 'Minimum deposit is KES 10' }, 400)
     }
 
-    // Get member + FOSA account
     const { data: member } = await supabase
       .from('members')
       .select('id, full_name, email, phone_number')
@@ -44,8 +36,8 @@ Deno.serve(async (req) => {
 
     if (!fosa) return json({ error: 'FOSA account not found' }, 404)
 
-    // Create pending transaction
     const reference = `DEP-${Date.now()}`
+
     const { data: tx } = await supabase
       .from('transactions')
       .insert({
@@ -60,39 +52,37 @@ Deno.serve(async (req) => {
       .select('id')
       .single()
 
-    // Initiate IntaSend checkout
-    const checkoutRes = await fetch(`${INTASEND_BASE}/checkout/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${INTASEND_SECRET}`,
-      },
-      body: JSON.stringify({
-        public_key: Deno.env.get('INTASEND_PUBLISHABLE_KEY'),
-        amount,
-        currency: 'KES',
-        api_ref: reference,
-        email: member.email ?? '',
-        first_name: member.full_name.split(' ')[0],
-        last_name: member.full_name.split(' ').slice(1).join(' ') || '',
-        redirect_url: 'https://omwasacco.app/payment/callback',
-      }),
+    const isSandbox = Deno.env.get('INTASEND_SANDBOX') === 'true'
+    const intasend = new IntaSend(
+      Deno.env.get('INTASEND_PUBLISHABLE_KEY')!,
+      Deno.env.get('INTASEND_SECRET_KEY')!,
+      isSandbox
+    )
+
+    const collection = intasend.collection()
+
+    console.log('[CHECKOUT] Initiating checkout for KES', amount)
+
+    const response = await collection.charge({
+      first_name: member.full_name.split(' ')[0],
+      last_name: member.full_name.split(' ').slice(1).join(' ') || '',
+      email: member.email ?? '',
+      host: 'https://omwasacco.app',
+      amount,
+      currency: 'KES',
+      api_ref: reference,
+      redirect_url: 'https://omwasacco.app/payment/callback',
     })
 
-    const checkoutData = await checkoutRes.json()
-
-    if (!checkoutRes.ok) {
-      console.error('[CHECKOUT] IntaSend error:', checkoutData)
-      return json({ error: 'Failed to initiate payment' }, 500)
-    }
+    console.log('[CHECKOUT] IntaSend response:', JSON.stringify(response))
 
     return json({
       success: true,
-      checkout_url: checkoutData.url,
+      checkout_url: response.url,
       transaction_id: tx!.id,
     })
   } catch (e) {
-    console.error('[CHECKOUT] Error:', e.message)
+    console.error('[CHECKOUT] Error:', e.message, e.stack)
     return json({ error: e.message }, 500)
   }
 })

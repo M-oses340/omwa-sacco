@@ -1,14 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// @deno-types="npm:intasend-node"
+import IntaSend from 'npm:intasend-node'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
-
-const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
-const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
-  ? 'https://sandbox.intasend.com/api/v1'
-  : 'https://payment.intasend.com/api/v1'
 
 Deno.serve(async (req) => {
   try {
@@ -65,34 +62,29 @@ Deno.serve(async (req) => {
         ? `254${phone.slice(1)}`
         : phone
 
-      // Initiate IntaSend M-Pesa B2C payout
-      const payoutRes = await fetch(`${INTASEND_BASE}/send-money/mpesa/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${INTASEND_SECRET}`,
-        },
-        body: JSON.stringify({
-          currency: 'KES',
-          transactions: [
-            {
-              name: member.full_name,
-              account: normalised,
-              amount,
-              narrative: 'FOSA withdrawal',
-            },
-          ],
-          api_ref: reference,
-          callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/intasend-webhook`,
-        }),
+      const isSandbox = Deno.env.get('INTASEND_SANDBOX') === 'true'
+      const intasend = new IntaSend(
+        Deno.env.get('INTASEND_PUBLISHABLE_KEY')!,
+        Deno.env.get('INTASEND_SECRET_KEY')!,
+        isSandbox
+      )
+
+      const payouts = intasend.payouts()
+
+      console.log('[WITHDRAWAL] Initiating M-Pesa B2C to', normalised, 'amount', amount)
+
+      const response = await payouts.mpesa({
+        currency: 'KES',
+        requires_approval: 'NO',
+        transactions: [{
+          name: member.full_name,
+          account: normalised,
+          amount: amount.toString(),
+          narrative: 'FOSA withdrawal - Omwa Sacco',
+        }],
       })
 
-      const payoutData = await payoutRes.json()
-
-      if (!payoutRes.ok) {
-        console.error('[WITHDRAWAL] IntaSend error:', payoutData)
-        return json({ error: 'M-Pesa withdrawal failed. Please try again.' }, 500)
-      }
+      console.log('[WITHDRAWAL] IntaSend response:', JSON.stringify(response))
 
       // Deduct balance and record transaction
       await supabase
@@ -109,7 +101,7 @@ Deno.serve(async (req) => {
         balance_after: newBalance,
         reference,
         description: `M-Pesa withdrawal to ${phone}`,
-        status: 'pending', // webhook will update to completed
+        status: 'pending',
       })
 
       return json({ success: true })
@@ -135,7 +127,7 @@ Deno.serve(async (req) => {
       return json({ success: true })
     }
   } catch (e) {
-    console.error('[WITHDRAWAL] Error:', e.message)
+    console.error('[WITHDRAWAL] Error:', e.message, e.stack)
     return json({ error: e.message }, 500)
   }
 })

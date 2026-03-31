@@ -61,6 +61,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     emit(TransactionLoading());
     try {
       final session = _supabase.auth.currentSession;
+      debugPrint('[WITHDRAW] method=${event.method} amount=${event.amount} phone=${event.phoneNumber}');
       if (session == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
@@ -94,6 +95,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             ));
 
         final data = response.data as Map<String, dynamic>;
+        debugPrint('[WITHDRAW] Edge function response: $data');
         if (data['success'] == true) {
           emit(TransactionSuccess(
               'Withdrawal of KES ${event.amount.toStringAsFixed(2)} to ${event.phoneNumber} is being processed.'));
@@ -124,8 +126,10 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             'ATM withdrawal of KES ${event.amount.toStringAsFixed(2)} approved. Collect at any ATM.'));
       }
     } on FunctionException catch (e) {
+      debugPrint('[WITHDRAW] FunctionException: ${e.details}');
       emit(TransactionError('Service error: ${e.details}'));
     } catch (e) {
+      debugPrint('[WITHDRAW] Error: $e');
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }

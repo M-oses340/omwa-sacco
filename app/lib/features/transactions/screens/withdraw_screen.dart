@@ -39,6 +39,8 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.parse(_amountController.text.trim());
+    // ignore: avoid_print
+    print('[WITHDRAW] method=$_method amount=$amount phone=${_phoneController.text.trim()} memberId=${widget.member['id']}');
     context.read<TransactionBloc>().add(WithdrawInitiated(
           memberId: widget.member['id'],
           amount: amount,

@@ -17,7 +17,7 @@ deploy_supabase_functions() {
     func_name=$(basename "$dir")
     if [ -f "$dir/index.ts" ]; then
       echo "  → Deploying $func_name"
-      supabase functions deploy "$func_name" --project-ref "$PROJECT_REF"
+      supabase functions deploy "$func_name"
     fi
   done
   echo "✅ Supabase functions deployed"
@@ -28,12 +28,18 @@ deploy_intasend_functions() {
   for dir in "$ROOT_DIR/intasend/functions"/*/; do
     func_name=$(basename "$dir")
     if [ -f "$dir/index.ts" ]; then
-      echo "  → Copying $func_name to supabase/functions/"
-      cp -r "$dir" "$ROOT_DIR/supabase/functions/$func_name"
-      echo "  → Deploying $func_name"
-      supabase functions deploy "$func_name" --project-ref "$PROJECT_REF" --no-verify-jwt
-      echo "  → Cleaning up temp copy"
-      rm -rf "$ROOT_DIR/supabase/functions/$func_name"
+      # Only copy if a supabase function with this name doesn't already exist
+      if [ ! -d "$ROOT_DIR/supabase/functions/$func_name" ]; then
+        echo "  → Copying $func_name to supabase/functions/"
+        cp -r "$dir" "$ROOT_DIR/supabase/functions/$func_name"
+        echo "  → Deploying $func_name"
+        supabase functions deploy "$func_name" --no-verify-jwt
+        echo "  → Cleaning up temp copy"
+        rm -rf "$ROOT_DIR/supabase/functions/$func_name"
+      else
+        echo "  → Deploying $func_name (already in supabase/functions/)"
+        supabase functions deploy "$func_name" --no-verify-jwt
+      fi
     fi
   done
   echo "✅ IntaSend functions deployed"
@@ -41,7 +47,7 @@ deploy_intasend_functions() {
 
 deploy_migrations() {
   echo "🗄️  Pushing database migrations..."
-  supabase db push --project-ref "$PROJECT_REF"
+  supabase db push --linked --yes
   echo "✅ Migrations pushed"
 }
 

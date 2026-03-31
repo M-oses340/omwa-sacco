@@ -9,6 +9,7 @@ import '../transactions/screens/withdraw_screen.dart';
 import '../transactions/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
+import '../loans/screens/loans_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -334,7 +335,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.account_balance_wallet,
                           label: 'Loans',
                           color: Colors.purple,
-                          onTap: () {}),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  LoansScreen(member: widget.member),
+                            ),
+                          )),
                     ],
                   ),
                   const SizedBox(height: 8),

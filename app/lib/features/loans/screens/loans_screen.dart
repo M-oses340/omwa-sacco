@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../bloc/loan_bloc.dart';
 import '../models/loan_model.dart';
 import '../models/loan_product.dart';
+import 'loan_detail_screen.dart';
 
 class LoansScreen extends StatelessWidget {
   final Map<String, dynamic> member;
@@ -190,7 +191,7 @@ class _LoanList extends StatelessWidget {
                     .titleSmall
                     ?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            ...loans.map((l) => _LoanTile(loan: l)),
+            ...loans.map((l) => _LoanTile(loan: l, member: member)),
           ],
         ],
       ),
@@ -468,13 +469,22 @@ class _PendingLoanCard extends StatelessWidget {
 
 class _LoanTile extends StatelessWidget {
   final LoanModel loan;
-  const _LoanTile({required this.loan});
+  final Map<String, dynamic> member;
+  const _LoanTile({required this.loan, required this.member});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final product = LoanProduct.find(loan.loanType);
-    return Container(
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoanDetailScreen(loan: loan, member: member),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -519,8 +529,12 @@ class _LoanTile extends StatelessWidget {
               _StatusChip(status: loan.status),
             ],
           ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right,
+              color: cs.onSurface.withValues(alpha: 0.3), size: 18),
         ],
       ),
+    ),
     );
   }
 }
@@ -752,11 +766,11 @@ class _ProductTile extends StatelessWidget {
                               fontSize: 14, fontWeight: FontWeight.w600)),
                       if (product.noDividends) ...[
                         const SizedBox(width: 6),
-                        _Tag('No dividends', Colors.orange),
+                        const _Tag('No dividends', Colors.orange),
                       ],
                       if (product.salaryRequired) ...[
                         const SizedBox(width: 6),
-                        _Tag('Salary via FOSA', Colors.blue),
+                        const _Tag('Salary via FOSA', Colors.blue),
                       ],
                     ],
                   ),
@@ -1146,15 +1160,33 @@ class _ThousandsFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(',', '');
-    if (digits.isEmpty) return newValue.copyWith(text: '');
-    final number = int.tryParse(digits);
-    if (number == null) return oldValue;
-    final formatted = number.toString().replaceAllMapped(
+    // Allow empty
+    if (newValue.text.isEmpty) return newValue;
+
+    // Strip existing commas
+    final raw = newValue.text.replaceAll(',', '');
+
+    // Allow trailing decimal point or zeros (e.g. "1000.", "1000.0")
+    final hasDecimal = raw.contains('.');
+    final parts = raw.split('.');
+    final intPart = parts[0];
+    final decPart = parts.length > 1 ? parts[1] : null;
+
+    // Validate integer part is numeric
+    if (intPart.isNotEmpty && int.tryParse(intPart) == null) return oldValue;
+
+    // Format integer part with commas
+    final formatted = intPart.replaceAllMapped(
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+    // Reconstruct with decimal if present
+    final result = hasDecimal
+        ? '$formatted.${decPart ?? ''}'
+        : formatted;
+
     return newValue.copyWith(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      text: result,
+      selection: TextSelection.collapsed(offset: result.length),
     );
   }
 }

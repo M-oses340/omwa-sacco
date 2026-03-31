@@ -26,3 +26,9 @@ class LoanCancellationRequested extends LoanEvent {
   final String memberId;
   LoanCancellationRequested({required this.loanId, required this.memberId});
 }
+
+class LoanScheduleRequested extends LoanEvent {
+  final String loanId;
+  final String memberId;
+  LoanScheduleRequested({required this.loanId, required this.memberId});
+}

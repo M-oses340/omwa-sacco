@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/connectivity_service.dart';
 import '../models/loan_model.dart';
+import '../models/amortization_entry.dart';
 
 part 'loan_event.dart';
 part 'loan_state.dart';
@@ -14,6 +15,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanHistoryRequested>(_onHistoryRequested);
     on<LoanApplicationSubmitted>(_onApplicationSubmitted);
     on<LoanCancellationRequested>(_onCancellationRequested);
+    on<LoanScheduleRequested>(_onScheduleRequested);
   }
 
   Future<void> _onHistoryRequested(
@@ -21,7 +23,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     emit(LoanLoading());
     try {
       debugPrint('[LOAN] Fetching history for member: ${event.memberId}');
-
       final results = await ConnectivityService.instance.guard(() =>
           Future.wait([
             _supabase
@@ -44,7 +45,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       final loans = (results[0] as List)
           .map((e) => LoanModel.fromMap(e as Map<String, dynamic>))
           .toList();
-
       final bosa = results[1] as Map<String, dynamic>?;
       final fosa = results[2] as Map<String, dynamic>?;
       final bosaSavings =
@@ -52,9 +52,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       final fosaBalance =
           double.tryParse(fosa?['balance']?.toString() ?? '0') ?? 0;
 
-      debugPrint('[LOAN] Loaded ${loans.length} loan(s), '
-          'BOSA savings: $bosaSavings, FOSA balance: $fosaBalance');
-
+      debugPrint('[LOAN] Loaded ${loans.length} loan(s)');
       emit(LoanHistoryLoaded(loans,
           bosaSavings: bosaSavings, fosaBalance: fosaBalance));
     } catch (e) {
@@ -80,7 +78,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
         'duration_months': event.durationMonths,
         'purpose': event.purpose,
       };
-      debugPrint('[LOAN] Submitting application: $payload');
+      debugPrint('[LOAN] Submitting: $payload');
 
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
@@ -89,24 +87,25 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
             headers: {'Authorization': 'Bearer ${session.accessToken}'},
           ));
 
-      debugPrint('[LOAN] Response status: ${response.status}');
-      debugPrint('[LOAN] Response data: ${response.data}');
-
+      debugPrint('[LOAN] Response: ${response.data}');
       final data = response.data as Map<String, dynamic>;
+
       if (data['success'] == true) {
         final loan = LoanModel.fromMap(data['loan'] as Map<String, dynamic>);
-        debugPrint('[LOAN] Application success — loan #${loan.loanNumber}');
-        emit(LoanApplicationSuccess(loan));
+        final schedule = (data['schedule'] as List? ?? [])
+            .map((e) => AmortizationEntry.fromMap(e as Map<String, dynamic>))
+            .toList();
+        debugPrint('[LOAN] Success — ${loan.loanNumber}, ${schedule.length} schedule entries');
+        emit(LoanApplicationSuccess(loan, schedule: schedule));
       } else {
-        debugPrint('[LOAN] Application rejected: ${data['error']}');
+        debugPrint('[LOAN] Rejected: ${data['error']}');
         emit(LoanError(data['error'] ?? 'Failed to submit application'));
       }
     } on FunctionException catch (e) {
-      debugPrint('[LOAN] FunctionException status: ${e.status}');
-      debugPrint('[LOAN] FunctionException details: ${e.details}');
+      debugPrint('[LOAN] FunctionException: ${e.status} ${e.details}');
       emit(LoanError('Service error. Please try again.'));
     } catch (e) {
-      debugPrint('[LOAN] Unexpected error: $e');
+      debugPrint('[LOAN] Error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }
@@ -115,18 +114,51 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanCancellationRequested event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      debugPrint('[LOAN] Cancelling loan: ${event.loanId}');
+      debugPrint('[LOAN] Cancelling: ${event.loanId}');
       await ConnectivityService.instance.guard(() => _supabase
           .from('loans')
-          .update({'status': 'rejected', 'rejected_reason': 'Cancelled by member'})
+          .update({
+            'status': 'rejected',
+            'rejected_reason': 'Cancelled by member'
+          })
           .eq('id', event.loanId)
           .eq('member_id', event.memberId)
-          .eq('status', 'pending')); // only pending loans can be cancelled
-
-      debugPrint('[LOAN] Loan cancelled');
+          .eq('status', 'pending'));
       emit(LoanCancelSuccess());
     } catch (e) {
       debugPrint('[LOAN] Cancel error: $e');
+      emit(LoanError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onScheduleRequested(
+      LoanScheduleRequested event, Emitter<LoanState> emit) async {
+    emit(LoanLoading());
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(LoanError('Session expired.'));
+        return;
+      }
+      debugPrint('[LOAN] Fetching schedule for: ${event.loanId}');
+      final response = await ConnectivityService.instance.guard(() =>
+          _supabase.functions.invoke(
+            'process-loan',
+            body: {'action': 'schedule', 'loan_id': event.loanId},
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ));
+
+      final data = response.data as Map<String, dynamic>;
+      final schedule = (data['schedule'] as List? ?? [])
+          .map((e) => AmortizationEntry.fromMap(e as Map<String, dynamic>))
+          .toList();
+      debugPrint('[LOAN] Schedule loaded: ${schedule.length} entries');
+      emit(LoanScheduleLoaded(schedule));
+    } on FunctionException catch (e) {
+      debugPrint('[LOAN] Schedule FunctionException: ${e.details}');
+      emit(LoanError('Could not load schedule.'));
+    } catch (e) {
+      debugPrint('[LOAN] Schedule error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }

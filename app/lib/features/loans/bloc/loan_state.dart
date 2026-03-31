@@ -8,17 +8,23 @@ class LoanLoading extends LoanState {}
 
 class LoanHistoryLoaded extends LoanState {
   final List<LoanModel> loans;
-  final double bosaSavings;   // used to compute loan limit in UI
+  final double bosaSavings;
   final double fosaBalance;
   LoanHistoryLoaded(this.loans, {this.bosaSavings = 0, this.fosaBalance = 0});
 }
 
 class LoanApplicationSuccess extends LoanState {
   final LoanModel loan;
-  LoanApplicationSuccess(this.loan);
+  final List<AmortizationEntry> schedule;
+  LoanApplicationSuccess(this.loan, {this.schedule = const []});
 }
 
 class LoanCancelSuccess extends LoanState {}
+
+class LoanScheduleLoaded extends LoanState {
+  final List<AmortizationEntry> schedule;
+  LoanScheduleLoaded(this.schedule);
+}
 
 class LoanError extends LoanState {
   final String message;

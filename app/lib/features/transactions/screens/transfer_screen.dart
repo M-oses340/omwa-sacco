@@ -358,6 +358,7 @@ class _ExternalTransferFormState extends State<_ExternalTransferForm> {
                     ? const Center(child: CircularProgressIndicator())
                     : DropdownButtonFormField<String>(
                   initialValue: _selectedBankCode,
+                  isExpanded: true,
                   decoration: InputDecoration(
                     labelText: 'Select Bank',
                     prefixIcon: const Icon(Icons.account_balance),

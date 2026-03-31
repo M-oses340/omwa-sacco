@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
 import '../transactions/screens/deposit_screen.dart';
 import '../transactions/screens/withdraw_screen.dart';
+import '../transactions/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 
@@ -323,7 +324,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.swap_horiz,
                           label: 'Transfer',
                           color: Colors.blue,
-                          onTap: () {}),
+                          onTap: () async {
+                            final ctx = context;
+                            final refreshed = await showTransferSheet(
+                                ctx, widget.member);
+                            if (refreshed == true) _loadData();
+                          }),
                       _QuickAction(
                           icon: Icons.account_balance_wallet,
                           label: 'Loans',

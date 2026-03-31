@@ -13,6 +13,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<DepositInitiated>(_onDepositInitiated);
     on<CheckoutCompleted>(_onCheckoutCompleted);
     on<WithdrawInitiated>(_onWithdrawInitiated);
+    on<InternalTransferInitiated>(_onInternalTransfer);
+    on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
   Future<void> _onDepositInitiated(
@@ -133,6 +135,79 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       }
     } catch (e) {
       emit(TransactionError(e.toString()));
+    }
+  }
+
+  Future<void> _onInternalTransfer(
+      InternalTransferInitiated event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(TransactionError('Session expired. Please log in again.'));
+        return;
+      }
+
+      final response = await ConnectivityService.instance.guard(() =>
+          _supabase.functions.invoke(
+            'initiate-transfer',
+            body: {
+              'type': 'internal',
+              'to_member_number': event.toMemberNumber,
+              'amount': event.amount,
+              'note': event.note,
+            },
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ));
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        emit(TransactionSuccess(
+            'KES ${event.amount.toStringAsFixed(2)} transferred to ${event.toMemberNumber}.'));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Transfer failed'));
+      }
+    } on FunctionException catch (e) {
+      emit(TransactionError('Service error: ${e.details}'));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onExternalTransfer(
+      ExternalTransferInitiated event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        emit(TransactionError('Session expired. Please log in again.'));
+        return;
+      }
+
+      final response = await ConnectivityService.instance.guard(() =>
+          _supabase.functions.invoke(
+            'initiate-transfer',
+            body: {
+              'type': 'external',
+              'bank_code': event.bankCode,
+              'account_number': event.accountNumber,
+              'account_name': event.accountName,
+              'amount': event.amount,
+            },
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ));
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        emit(TransactionSuccess(
+            'KES ${event.amount.toStringAsFixed(2)} bank transfer initiated.'));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Transfer failed'));
+      }
+    } on FunctionException catch (e) {
+      emit(TransactionError('Service error: ${e.details}'));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 }

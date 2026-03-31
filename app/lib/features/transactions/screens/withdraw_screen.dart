@@ -29,6 +29,12 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
   final _phoneController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _phoneController.text = widget.member['phone_number'] ?? '';
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     _phoneController.dispose();
@@ -160,20 +166,21 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      readOnly: true,
                       decoration: InputDecoration(
                         labelText: 'M-Pesa Phone Number',
                         hintText: '07XXXXXXXX',
                         prefixIcon: const Icon(Icons.phone),
+                        suffixIcon: const Tooltip(
+                          message: 'Only your registered number can be used',
+                          child: Icon(Icons.lock_outline, size: 18),
+                        ),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
-                          return 'Enter phone number';
-                        }
-                        if (!RegExp(r'^(?:\+254|0)[17]\d{8}$')
-                            .hasMatch(v.trim())) {
-                          return 'Enter a valid Kenyan phone number';
+                          return 'Phone number required';
                         }
                         return null;
                       },

@@ -19,22 +19,22 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     if (authError || !user) return json({ error: 'Unauthorized' }, 401)
 
-    const { amount, phone } = await req.json()
+    const { amount } = await req.json()
 
     if (!amount || amount < 100) {
       return json({ error: 'Minimum withdrawal is KES 100' }, 400)
     }
-    if (!phone) {
-      return json({ error: 'Phone number required' }, 400)
-    }
 
     const { data: member } = await supabase
       .from('members')
-      .select('id, full_name')
+      .select('id, full_name, phone_number')
       .eq('user_id', user.id)
       .single()
 
     if (!member) return json({ error: 'Member not found' }, 404)
+
+    // Always use the registered phone number — ignore any phone sent in request
+    const phone = member.phone_number
 
     const { data: fosa } = await supabase
       .from('fosa_accounts')

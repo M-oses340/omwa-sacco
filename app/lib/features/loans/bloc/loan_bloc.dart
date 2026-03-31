@@ -13,6 +13,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
   LoanBloc() : super(LoanInitial()) {
     on<LoanHistoryRequested>(_onHistoryRequested);
     on<LoanApplicationSubmitted>(_onApplicationSubmitted);
+    on<LoanCancellationRequested>(_onCancellationRequested);
   }
 
   Future<void> _onHistoryRequested(
@@ -20,17 +21,42 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     emit(LoanLoading());
     try {
       debugPrint('[LOAN] Fetching history for member: ${event.memberId}');
-      final data = await ConnectivityService.instance.guard(() => _supabase
-          .from('loans')
-          .select()
-          .eq('member_id', event.memberId)
-          .order('created_at', ascending: false));
 
-      final loans = (data as List)
+      final results = await ConnectivityService.instance.guard(() =>
+          Future.wait([
+            _supabase
+                .from('loans')
+                .select()
+                .eq('member_id', event.memberId)
+                .order('created_at', ascending: false),
+            _supabase
+                .from('bosa_accounts')
+                .select('savings_balance')
+                .eq('member_id', event.memberId)
+                .maybeSingle(),
+            _supabase
+                .from('fosa_accounts')
+                .select('balance')
+                .eq('member_id', event.memberId)
+                .maybeSingle(),
+          ]));
+
+      final loans = (results[0] as List)
           .map((e) => LoanModel.fromMap(e as Map<String, dynamic>))
           .toList();
-      debugPrint('[LOAN] Loaded ${loans.length} loan(s)');
-      emit(LoanHistoryLoaded(loans));
+
+      final bosa = results[1] as Map<String, dynamic>?;
+      final fosa = results[2] as Map<String, dynamic>?;
+      final bosaSavings =
+          double.tryParse(bosa?['savings_balance']?.toString() ?? '0') ?? 0;
+      final fosaBalance =
+          double.tryParse(fosa?['balance']?.toString() ?? '0') ?? 0;
+
+      debugPrint('[LOAN] Loaded ${loans.length} loan(s), '
+          'BOSA savings: $bosaSavings, FOSA balance: $fosaBalance');
+
+      emit(LoanHistoryLoaded(loans,
+          bosaSavings: bosaSavings, fosaBalance: fosaBalance));
     } catch (e) {
       debugPrint('[LOAN] History error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
@@ -81,6 +107,26 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       emit(LoanError('Service error. Please try again.'));
     } catch (e) {
       debugPrint('[LOAN] Unexpected error: $e');
+      emit(LoanError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onCancellationRequested(
+      LoanCancellationRequested event, Emitter<LoanState> emit) async {
+    emit(LoanLoading());
+    try {
+      debugPrint('[LOAN] Cancelling loan: ${event.loanId}');
+      await ConnectivityService.instance.guard(() => _supabase
+          .from('loans')
+          .update({'status': 'rejected', 'rejected_reason': 'Cancelled by member'})
+          .eq('id', event.loanId)
+          .eq('member_id', event.memberId)
+          .eq('status', 'pending')); // only pending loans can be cancelled
+
+      debugPrint('[LOAN] Loan cancelled');
+      emit(LoanCancelSuccess());
+    } catch (e) {
+      debugPrint('[LOAN] Cancel error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }

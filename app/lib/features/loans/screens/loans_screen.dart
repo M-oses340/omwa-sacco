@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/loan_bloc.dart';
@@ -51,7 +52,10 @@ class _LoansView extends StatelessWidget {
                   l.status == 'disbursed');
           if (hasActive) return const SizedBox.shrink();
           return FloatingActionButton.extended(
-            onPressed: () => _showProductPicker(ctx),
+            onPressed: () => _showProductPicker(ctx,
+                bosaSavings: state is LoanHistoryLoaded
+                    ? state.bosaSavings
+                    : 0),
             icon: const Icon(Icons.add),
             label: const Text('Apply'),
           );
@@ -60,7 +64,6 @@ class _LoansView extends StatelessWidget {
       body: BlocConsumer<LoanBloc, LoanState>(
         listener: (ctx, state) {
           if (state is LoanApplicationSuccess) {
-            // Pop the application sheet if still open
             if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
             ScaffoldMessenger.of(ctx).showSnackBar(
               const SnackBar(
@@ -69,11 +72,18 @@ class _LoansView extends StatelessWidget {
               ),
             );
             ctx.read<LoanBloc>().add(LoanHistoryRequested(member['id'] as String));
+          } else if (state is LoanCancelSuccess) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(
+                content: Text('Loan application cancelled'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            ctx.read<LoanBloc>().add(LoanHistoryRequested(member['id'] as String));
           } else if (state is LoanError) {
             ScaffoldMessenger.of(ctx).showSnackBar(
               SnackBar(content: Text(state.message), backgroundColor: cs.error),
             );
-            // Reload history to restore previous state
             ctx.read<LoanBloc>().add(LoanHistoryRequested(member['id'] as String));
           }
         },
@@ -82,7 +92,11 @@ class _LoansView extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (state is LoanHistoryLoaded) {
-            return _LoanList(loans: state.loans, member: member);
+            return _LoanList(
+              loans: state.loans,
+              member: member,
+              bosaSavings: state.bosaSavings,
+            );
           }
           return const Center(child: CircularProgressIndicator());
         },
@@ -90,7 +104,7 @@ class _LoansView extends StatelessWidget {
     );
   }
 
-  void _showProductPicker(BuildContext context) {
+  void _showProductPicker(BuildContext context, {double bosaSavings = 0}) {
     final bloc = context.read<LoanBloc>();
     showModalBottomSheet(
       context: context,
@@ -100,7 +114,7 @@ class _LoansView extends StatelessWidget {
       ),
       builder: (_) => BlocProvider.value(
         value: bloc,
-        child: _ProductPickerSheet(member: member),
+        child: _ProductPickerSheet(member: member, bosaSavings: bosaSavings),
       ),
     );
   }
@@ -111,13 +125,19 @@ class _LoansView extends StatelessWidget {
 class _LoanList extends StatelessWidget {
   final List<LoanModel> loans;
   final Map<String, dynamic> member;
-  const _LoanList({required this.loans, required this.member});
+  final double bosaSavings;
+  const _LoanList(
+      {required this.loans,
+      required this.member,
+      required this.bosaSavings});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final activeLoan =
         loans.where((l) => l.status == 'disbursed').firstOrNull;
+    final pendingLoan =
+        loans.where((l) => l.status == 'pending').firstOrNull;
 
     return RefreshIndicator(
       onRefresh: () async => context
@@ -125,16 +145,26 @@ class _LoanList extends StatelessWidget {
           .add(LoanHistoryRequested(member['id'] as String)),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
+          // Loan limit summary
+          _LoanLimitCard(bosaSavings: bosaSavings),
+          const SizedBox(height: 12),
+
           if (activeLoan != null) ...[
             _ActiveLoanCard(loan: activeLoan),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
+
+          if (pendingLoan != null) ...[
+            _PendingLoanCard(loan: pendingLoan, member: member),
+            const SizedBox(height: 12),
+          ],
+
           if (loans.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.only(top: 60),
+                padding: const EdgeInsets.only(top: 40),
                 child: Column(
                   children: [
                     Icon(Icons.account_balance_wallet_outlined,
@@ -166,6 +196,59 @@ class _LoanList extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Loan limit card ───────────────────────────────────────────────────────────
+
+class _LoanLimitCard extends StatelessWidget {
+  final double bosaSavings;
+  const _LoanLimitCard({required this.bosaSavings});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final limit5x = bosaSavings * 5;
+    final limit4x = bosaSavings * 4;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: cs.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Your Loan Eligibility',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onPrimaryContainer)),
+                const SizedBox(height: 2),
+                Text(
+                  bosaSavings > 0
+                      ? 'Up to KES ${_fmt(limit5x)} (5× deposits) · '
+                          'Muslim: KES ${_fmt(limit4x)} (4× deposits)'
+                      : 'Make BOSA deposits to qualify for loans',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 }
 
 // ── Active loan card ──────────────────────────────────────────────────────────
@@ -214,8 +297,20 @@ class _ActiveLoanCard extends StatelessWidget {
                   color: Colors.white,
                   fontSize: 28,
                   fontWeight: FontWeight.bold)),
-          Text('${loan.durationMonths} months',
-              style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          Row(
+            children: [
+              Text('${loan.durationMonths} months',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12)),
+              if (loan.dueDate != null) ...[
+                const Text(' · ',
+                    style: TextStyle(color: Colors.white38, fontSize: 12)),
+                Text(
+                  'Due ${_fmtDate(loan.dueDate!)}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
           if (loan.commissionAmount > 0)
             Text('Commission: KES ${loan.commissionAmount.toStringAsFixed(2)}',
                 style: const TextStyle(color: Colors.amber, fontSize: 11)),
@@ -251,6 +346,8 @@ class _ActiveLoanCard extends StatelessWidget {
       ),
     );
   }
+
+  String _fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 }
 
 class _InfoItem extends StatelessWidget {
@@ -270,6 +367,101 @@ class _InfoItem extends StatelessWidget {
                   fontWeight: FontWeight.w600)),
         ],
       );
+}
+
+// ── Pending loan card (with cancel) ──────────────────────────────────────────
+
+class _PendingLoanCard extends StatelessWidget {
+  final LoanModel loan;
+  final Map<String, dynamic> member;
+  const _PendingLoanCard({required this.loan, required this.member});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final product = LoanProduct.find(loan.loanType);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(product?.displayName ?? loan.loanType,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
+              _StatusChip(status: loan.status),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('KES ${loan.principal.toStringAsFixed(2)} · ${loan.durationMonths} months',
+              style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.6), fontSize: 13)),
+          Text('Ref: ${loan.loanNumber}',
+              style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.4), fontSize: 11)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.hourglass_top, color: Colors.orange, size: 14),
+              const SizedBox(width: 4),
+              Text('Awaiting approval',
+                  style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _confirmCancel(context),
+                icon: const Icon(Icons.cancel_outlined,
+                    size: 16, color: Colors.red),
+                label: const Text('Cancel',
+                    style: TextStyle(color: Colors.red, fontSize: 12)),
+                style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmCancel(BuildContext context) {
+    final bloc = context.read<LoanBloc>();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Application'),
+        content: const Text(
+            'Are you sure you want to cancel this loan application? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              bloc.add(LoanCancellationRequested(
+                loanId: loan.id,
+                memberId: member['id'] as String,
+              ));
+            },
+            child: const Text('Yes, Cancel',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Loan tile ─────────────────────────────────────────────────────────────────
@@ -361,28 +553,48 @@ class _StatusChip extends StatelessWidget {
       );
 }
 
-// ── Product picker sheet ──────────────────────────────────────────────────────
+// ── Product picker with category tabs ────────────────────────────────────────
 
-class _ProductPickerSheet extends StatelessWidget {
+class _ProductPickerSheet extends StatefulWidget {
   final Map<String, dynamic> member;
-  const _ProductPickerSheet({required this.member});
+  final double bosaSavings;
+  const _ProductPickerSheet(
+      {required this.member, required this.bosaSavings});
+
+  @override
+  State<_ProductPickerSheet> createState() => _ProductPickerSheetState();
+}
+
+class _ProductPickerSheetState extends State<_ProductPickerSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final groups = {
-      'BOSA Loans': LoanProduct.all
-          .where((p) => p.category == LoanCategory.bosa)
-          .toList(),
-      'Salary Advances': LoanProduct.all
-          .where((p) => p.category == LoanCategory.fosaAdvance)
-          .toList(),
-      'Special Products': LoanProduct.all
-          .where((p) => p.category == LoanCategory.special)
-          .toList(),
-    };
+    final bosaProducts = LoanProduct.all
+        .where((p) => p.category == LoanCategory.bosa)
+        .toList();
+    final fosaProducts = LoanProduct.all
+        .where((p) => p.category == LoanCategory.fosaAdvance)
+        .toList();
+    final specialProducts = LoanProduct.all
+        .where((p) => p.category == LoanCategory.special)
+        .toList();
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.75,
+      initialChildSize: 0.85,
       maxChildSize: 0.95,
       minChildSize: 0.5,
       expand: false,
@@ -398,7 +610,7 @@ class _ProductPickerSheet extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -414,34 +626,37 @@ class _ProductPickerSheet extends StatelessWidget {
               ],
             ),
           ),
+          TabBar(
+            controller: _tabCtrl,
+            tabs: const [
+              Tab(text: 'BOSA'),
+              Tab(text: 'Salary Advance'),
+              Tab(text: 'Special'),
+            ],
+          ),
           Expanded(
-            child: ListView(
-              controller: scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              children: groups.entries.map((entry) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Text(entry.key,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary)),
-                    ),
-                    ...entry.value.map((product) => _ProductTile(
-                          product: product,
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showApplicationSheet(context, product);
-                          },
-                        )),
-                  ],
-                );
-              }).toList(),
+            child: TabBarView(
+              controller: _tabCtrl,
+              children: [
+                _ProductList(
+                  products: bosaProducts,
+                  bosaSavings: widget.bosaSavings,
+                  scrollCtrl: scrollCtrl,
+                  onSelect: (p) => _openApplication(context, p),
+                ),
+                _ProductList(
+                  products: fosaProducts,
+                  bosaSavings: widget.bosaSavings,
+                  scrollCtrl: scrollCtrl,
+                  onSelect: (p) => _openApplication(context, p),
+                ),
+                _ProductList(
+                  products: specialProducts,
+                  bosaSavings: widget.bosaSavings,
+                  scrollCtrl: scrollCtrl,
+                  onSelect: (p) => _openApplication(context, p),
+                ),
+              ],
             ),
           ),
         ],
@@ -449,8 +664,9 @@ class _ProductPickerSheet extends StatelessWidget {
     );
   }
 
-  void _showApplicationSheet(BuildContext context, LoanProduct product) {
+  void _openApplication(BuildContext context, LoanProduct product) {
     final bloc = context.read<LoanBloc>();
+    Navigator.pop(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -459,7 +675,39 @@ class _ProductPickerSheet extends StatelessWidget {
       ),
       builder: (_) => BlocProvider.value(
         value: bloc,
-        child: _LoanApplicationSheet(product: product, member: member),
+        child: _LoanApplicationSheet(
+          product: product,
+          member: widget.member,
+          bosaSavings: widget.bosaSavings,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductList extends StatelessWidget {
+  final List<LoanProduct> products;
+  final double bosaSavings;
+  final ScrollController scrollCtrl;
+  final void Function(LoanProduct) onSelect;
+
+  const _ProductList({
+    required this.products,
+    required this.bosaSavings,
+    required this.scrollCtrl,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: products.length,
+      itemBuilder: (_, i) => _ProductTile(
+        product: products[i],
+        bosaSavings: bosaSavings,
+        onTap: () => onSelect(products[i]),
       ),
     );
   }
@@ -467,12 +715,20 @@ class _ProductPickerSheet extends StatelessWidget {
 
 class _ProductTile extends StatelessWidget {
   final LoanProduct product;
+  final double bosaSavings;
   final VoidCallback onTap;
-  const _ProductTile({required this.product, required this.onTap});
+  const _ProductTile(
+      {required this.product,
+      required this.bosaSavings,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final limit = bosaSavings > 0 && product.depositMultiplier > 0
+        ? 'Up to KES ${(bosaSavings * product.depositMultiplier).toStringAsFixed(0)}'
+        : null;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -496,31 +752,11 @@ class _ProductTile extends StatelessWidget {
                               fontSize: 14, fontWeight: FontWeight.w600)),
                       if (product.noDividends) ...[
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text('No dividends',
-                              style: TextStyle(
-                                  fontSize: 9, color: Colors.orange)),
-                        ),
+                        _Tag('No dividends', Colors.orange),
                       ],
                       if (product.salaryRequired) ...[
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text('Salary via FOSA',
-                              style:
-                                  TextStyle(fontSize: 9, color: Colors.blue)),
-                        ),
+                        _Tag('Salary via FOSA', Colors.blue),
                       ],
                     ],
                   ),
@@ -529,6 +765,12 @@ class _ProductTile extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurface.withValues(alpha: 0.6))),
+                  if (limit != null)
+                    Text(limit,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.primary,
+                            fontWeight: FontWeight.w500)),
                   if (product.notes != null)
                     Text(product.notes!,
                         style: TextStyle(
@@ -549,7 +791,7 @@ class _ProductTile extends StatelessWidget {
                         color: cs.onSurface.withValues(alpha: 0.4))),
               ],
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Icon(Icons.chevron_right,
                 color: cs.onSurface.withValues(alpha: 0.3)),
           ],
@@ -559,13 +801,31 @@ class _ProductTile extends StatelessWidget {
   }
 }
 
+class _Tag extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Tag(this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(label,
+            style: TextStyle(fontSize: 9, color: color)),
+      );
+}
+
 // ── Application sheet ─────────────────────────────────────────────────────────
 
 class _LoanApplicationSheet extends StatefulWidget {
   final LoanProduct product;
   final Map<String, dynamic> member;
+  final double bosaSavings;
   const _LoanApplicationSheet(
-      {required this.product, required this.member});
+      {required this.product, required this.member, required this.bosaSavings});
 
   @override
   State<_LoanApplicationSheet> createState() => _LoanApplicationSheetState();
@@ -592,6 +852,11 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
 
   double get _principal =>
       double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0;
+
+  double get _loanLimit {
+    if (widget.product.depositMultiplier <= 0) return double.infinity;
+    return widget.bosaSavings * widget.product.depositMultiplier;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +902,34 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
                 ],
               ),
 
-              // Product notes (Muslim loan warning, Q-Cash rules, etc.)
+              // Loan limit hint
+              if (_loanLimit != double.infinity) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_balance,
+                          size: 14, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Your limit: KES ${_loanLimit.toStringAsFixed(0)} '
+                        '(${product.depositMultiplier.toStringAsFixed(0)}× '
+                        'KES ${widget.bosaSavings.toStringAsFixed(0)} deposits)',
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onPrimaryContainer),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // Product notes
               if (product.notes != null) ...[
                 const SizedBox(height: 8),
                 Container(
@@ -664,10 +956,11 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
 
               const SizedBox(height: 16),
 
-              // Amount
+              // Amount with comma formatter
               TextFormField(
                 controller: _amountCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [_ThousandsFormatter()],
                 decoration: InputDecoration(
                   labelText: 'Amount (KES)',
                   prefixText: 'KES ',
@@ -684,15 +977,19 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
                   if (val == null || val < 1000) {
                     return 'Minimum amount is KES 1,000';
                   }
-                  if (product.maxAmount != null && val > product.maxAmount!) {
+                  if (product.maxAmount != null &&
+                      val > product.maxAmount!) {
                     return 'Max is KES ${product.maxAmount!.toStringAsFixed(0)}';
+                  }
+                  if (_loanLimit != double.infinity && val > _loanLimit) {
+                    return 'Exceeds your limit of KES ${_loanLimit.toStringAsFixed(0)}';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 12),
 
-              // Duration slider (only if product allows variable duration)
+              // Duration slider
               if (product.maxMonths > 1) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -746,7 +1043,8 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
                         children: [
                           _EstItem(
                             label: 'Monthly Repayment',
-                            value: 'KES ${calc.monthly.toStringAsFixed(2)}',
+                            value:
+                                'KES ${calc.monthly.toStringAsFixed(2)}',
                             cs: cs,
                             large: true,
                           ),
@@ -791,7 +1089,8 @@ class _LoanApplicationSheetState extends State<_LoanApplicationSheet> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2))
                         : const Text('Submit Application'),
                   ),
                 ),
@@ -839,4 +1138,23 @@ class _EstItem extends StatelessWidget {
                   color: cs.onPrimaryContainer)),
         ],
       );
+}
+
+// ── Thousands formatter ───────────────────────────────────────────────────────
+
+class _ThousandsFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(',', '');
+    if (digits.isEmpty) return newValue.copyWith(text: '');
+    final number = int.tryParse(digits);
+    if (number == null) return oldValue;
+    final formatted = number.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    return newValue.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
 }

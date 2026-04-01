@@ -258,37 +258,67 @@ class _EligibilityBanner extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: cs.primary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Your Loan Eligibility',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onPrimaryContainer)),
-                const SizedBox(height: 2),
-                Text(
-                  bosaSavings > 0
-                      ? 'Up to KES ${_fmt(bosaSavings * 5)} (BOSA) · '
-                          'KES ${_fmt(bosaSavings * 4)} (Muslim)'
-                      : 'Make BOSA deposits to qualify for loans',
+          Row(
+            children: [
+              Icon(Icons.verified_user_outlined,
+                  color: cs.primary, size: 18),
+              const SizedBox(width: 8),
+              Text('Loan Eligibility',
                   style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onPrimaryContainer.withValues(alpha: 0.8)),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onPrimaryContainer)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (bosaSavings > 0)
+            Row(
+              children: [
+                _EligStat(
+                  label: 'BOSA Deposits',
+                  value: 'KES ${_fmt(bosaSavings)}',
+                  cs: cs,
+                ),
+                _EligDivider(),
+                _EligStat(
+                  label: 'Max Loan (5×)',
+                  value: 'KES ${_fmt(bosaSavings * 5)}',
+                  cs: cs,
+                  highlight: true,
+                ),
+                _EligDivider(),
+                _EligStat(
+                  label: 'Muslim (4×)',
+                  value: 'KES ${_fmt(bosaSavings * 4)}',
+                  cs: cs,
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Icon(Icons.info_outline,
+                    color: cs.onPrimaryContainer.withValues(alpha: 0.6),
+                    size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Make BOSA deposits to qualify for loans',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onPrimaryContainer.withValues(alpha: 0.7)),
+                  ),
                 ),
               ],
             ),
-          ),
         ],
       ),
     );
@@ -296,6 +326,49 @@ class _EligibilityBanner extends StatelessWidget {
 
   String _fmt(double v) => v.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+}
+
+class _EligStat extends StatelessWidget {
+  final String label, value;
+  final ColorScheme cs;
+  final bool highlight;
+  const _EligStat(
+      {required this.label,
+      required this.value,
+      required this.cs,
+      this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10,
+                    color: cs.onPrimaryContainer.withValues(alpha: 0.6))),
+            const SizedBox(height: 2),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: highlight ? cs.primary : cs.onPrimaryContainer)),
+          ],
+        ),
+      );
+}
+
+class _EligDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 1,
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 10),
+        color: Theme.of(context)
+            .colorScheme
+            .onPrimaryContainer
+            .withValues(alpha: 0.15),
+      );
 }
 
 class _SkeletonBanner extends StatelessWidget {
@@ -339,27 +412,46 @@ class _DashCard extends StatelessWidget {
     final enabled = onTap != null;
 
     return Material(
-      color: cs.surfaceContainerHighest,
+      color: cs.surface,
       borderRadius: BorderRadius.circular(16),
+      elevation: 0,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border(
+              left: BorderSide(
+                color: enabled ? color : color.withValues(alpha: 0.2),
+                width: 4,
+              ),
+            ),
+            color: cs.surfaceContainerHighest,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: enabled ? 0.12 : 0.06),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: enabled
+                      ? LinearGradient(
+                          colors: [
+                            color.withValues(alpha: 0.18),
+                            color.withValues(alpha: 0.08),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: enabled ? null : cs.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon,
-                    color: enabled
-                        ? color
-                        : color.withValues(alpha: 0.4),
-                    size: 24),
+                    color: enabled ? color : cs.onSurface.withValues(alpha: 0.3),
+                    size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -369,35 +461,39 @@ class _DashCard extends StatelessWidget {
                     Text(title,
                         style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: enabled
                                 ? cs.onSurface
                                 : cs.onSurface.withValues(alpha: 0.4))),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(subtitle,
                         style: TextStyle(
                             fontSize: 12,
-                            color: cs.onSurface.withValues(alpha: 0.5))),
+                            color: cs.onSurface.withValues(alpha: 0.55))),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               if (badge != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                      horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: color,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(badge!,
-                      style: TextStyle(
-                          color: color,
+                      style: const TextStyle(
+                          color: Colors.white,
                           fontSize: 11,
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: FontWeight.w700)),
                 )
               else
                 Icon(Icons.chevron_right,
-                    color: cs.onSurface.withValues(alpha: 0.3)),
+                    color: enabled
+                        ? color.withValues(alpha: 0.6)
+                        : cs.onSurface.withValues(alpha: 0.2),
+                    size: 20),
             ],
           ),
         ),

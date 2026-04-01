@@ -64,7 +64,10 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       }
     } on FunctionException catch (e) {
       debugPrint('[TRANSACTION] Function error: ${e.details}');
-      emit(TransactionError('Payment service error. Please try again.'));
+      final msg = (e.details is Map && (e.details as Map)['error'] != null)
+          ? (e.details as Map)['error'].toString()
+          : 'Payment service error. Please try again.';
+      emit(TransactionError(msg));
     } catch (e) {
       debugPrint('[TRANSACTION] Error: $e');
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));

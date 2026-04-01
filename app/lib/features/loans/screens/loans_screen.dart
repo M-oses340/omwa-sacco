@@ -93,7 +93,7 @@ class _LoansDashboard extends StatelessWidget {
                   icon: Icons.savings_outlined,
                   title: 'BOSA Loans',
                   subtitle: '12 products · Up to 108 months',
-                  color: AppColors.primary,
+                  color: AppColors.loanBosa,
                   badge: hasActiveLoan ? null : 'Apply',
                   onTap: () => _push(context, BosaLoansScreen(
                       member: member, bosaSavings: bosaSavings)),
@@ -104,7 +104,7 @@ class _LoansDashboard extends StatelessWidget {
                   icon: Icons.account_balance_outlined,
                   title: 'Salary Advances',
                   subtitle: '4 products · Salary via FOSA required',
-                  color: AppColors.fosaGreen,
+                  color: AppColors.loanSalary,
                   badge: hasActiveLoan ? null : 'Apply',
                   onTap: () => _push(context, SalaryAdvancesScreen(
                       member: member, bosaSavings: bosaSavings)),
@@ -115,7 +115,7 @@ class _LoansDashboard extends StatelessWidget {
                   icon: Icons.flash_on_outlined,
                   title: 'Special Products',
                   subtitle: 'Q-Cash · Dividend Advance',
-                  color: Colors.purple,
+                  color: AppColors.loanSpecial,
                   badge: hasActiveLoan ? null : 'Apply',
                   onTap: () => _push(context, SpecialProductsScreen(
                       member: member, bosaSavings: bosaSavings)),
@@ -136,7 +136,7 @@ class _LoansDashboard extends StatelessWidget {
                   subtitle: state is LoanHistoryLoaded
                       ? '${loans.length} loan${loans.length == 1 ? '' : 's'}'
                       : 'View all your loans',
-                  color: Colors.orange,
+                  color: AppColors.loanHistory,
                   onTap: () => _push(context,
                       LoanHistoryScreen(member: member, loans: loans)),
                 ),
@@ -148,7 +148,9 @@ class _LoansDashboard extends StatelessWidget {
                   subtitle: activeLoan != null
                       ? 'KES ${activeLoan.outstandingBalance.toStringAsFixed(0)} outstanding'
                       : 'No active loan',
-                  color: activeLoan != null ? Colors.green : Colors.grey,
+                  color: activeLoan != null
+                      ? AppColors.loanRepayment
+                      : AppColors.loanRepayment.withValues(alpha: 0.3),
                   badge: activeLoan?.status == 'disbursed' ? 'Pay Now' : null,
                   onTap: activeLoan != null
                       ? () => _push(context,
@@ -411,12 +413,12 @@ class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
   Color _color() => switch (status) {
-        'approved' => Colors.blue,
-        'disbursed' => Colors.green,
-        'rejected' => Colors.red,
-        'repaid' => Colors.teal,
-        'defaulted' => Colors.deepOrange,
-        _ => Colors.orange,
+        'approved' => AppColors.statusApproved,
+        'disbursed' => AppColors.statusDisbursed,
+        'rejected' => AppColors.statusRejected,
+        'repaid' => AppColors.statusRepaid,
+        'defaulted' => AppColors.statusDefaulted,
+        _ => AppColors.statusPending,
       };
 
   @override

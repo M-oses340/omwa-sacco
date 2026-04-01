@@ -15,6 +15,26 @@ class AppColors {
   static const Color darkBackground = Color(0xFF0D1117);
   static const Color darkSurface = Color(0xFF161B22);
   static const Color darkOnSurface = Color(0xFFE6EDF3);
+
+  // ── Loan category colors (semantic, theme-aware via extension) ────────────
+  // BOSA loans — deep blue (trust, savings)
+  static const Color loanBosa = Color(0xFF1565C0);
+  // Salary advances — teal (FOSA brand)
+  static const Color loanSalary = Color(0xFF00695C);
+  // Special products — deep purple (premium)
+  static const Color loanSpecial = Color(0xFF6A1B9A);
+  // Loan history — amber/orange (records)
+  static const Color loanHistory = Color(0xFFE65100);
+  // Repayments — green (positive action)
+  static const Color loanRepayment = Color(0xFF2E7D32);
+
+  // ── Status colors ─────────────────────────────────────────────────────────
+  static const Color statusPending = Color(0xFFF57C00);
+  static const Color statusApproved = Color(0xFF1565C0);
+  static const Color statusDisbursed = Color(0xFF2E7D32);
+  static const Color statusRejected = Color(0xFFC62828);
+  static const Color statusRepaid = Color(0xFF00695C);
+  static const Color statusDefaulted = Color(0xFFBF360C);
 }
 
 class AppTheme {

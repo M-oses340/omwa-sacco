@@ -591,12 +591,12 @@ class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
 
   Color _color() => switch (status) {
-        'approved' => Colors.blue,
-        'disbursed' => Colors.green,
-        'rejected' => Colors.red,
-        'repaid' => Colors.teal,
-        'defaulted' => Colors.deepOrange,
-        _ => Colors.orange,
+        'approved' => AppColors.statusApproved,
+        'disbursed' => AppColors.statusDisbursed,
+        'rejected' => AppColors.statusRejected,
+        'repaid' => AppColors.statusRepaid,
+        'defaulted' => AppColors.statusDefaulted,
+        _ => AppColors.statusPending,
       };
 
   @override

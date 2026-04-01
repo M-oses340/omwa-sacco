@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/theme/app_theme.dart';
 import '../bloc/loan_bloc.dart';
 import '../models/loan_model.dart';
 import '../models/loan_product.dart';
@@ -170,12 +171,12 @@ class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
   Color _color() => switch (status) {
-        'approved' => Colors.blue,
-        'disbursed' => Colors.green,
-        'rejected' => Colors.red,
-        'repaid' => Colors.teal,
-        'defaulted' => Colors.deepOrange,
-        _ => Colors.orange,
+        'approved' => AppColors.statusApproved,
+        'disbursed' => AppColors.statusDisbursed,
+        'rejected' => AppColors.statusRejected,
+        'repaid' => AppColors.statusRepaid,
+        'defaulted' => AppColors.statusDefaulted,
+        _ => AppColors.statusPending,
       };
 
   @override

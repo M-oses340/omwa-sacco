@@ -201,12 +201,19 @@ class _EligibilityBanner extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+          gradient: const LinearGradient(
+            colors: [AppColors.activeLoanBanner, AppColors.activeLoanBannerEnd],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

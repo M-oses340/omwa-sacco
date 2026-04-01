@@ -28,7 +28,9 @@ class AppColors {
   // Repayments — green (positive action)
   static const Color loanRepayment = Color(0xFF2E7D32);
 
-  // ── Status colors ─────────────────────────────────────────────────────────
+  // ── Active loan banner (dark navy — distinct from all category colors) ───────
+  static const Color activeLoanBanner = Color(0xFF0D1B2A);
+  static const Color activeLoanBannerEnd = Color(0xFF1B3A4B);
   static const Color statusPending = Color(0xFFF57C00);
   static const Color statusApproved = Color(0xFF1565C0);
   static const Color statusDisbursed = Color(0xFF2E7D32);

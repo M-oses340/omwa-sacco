@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
 import '../bloc/loan_bloc.dart';
@@ -86,47 +87,7 @@ class _LoanDetailView extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── Amortization schedule ─────────────────────────────────────
-              Text('Repayment Schedule',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-
-              if (state is LoanLoading)
-                const Center(
-                    child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
-                ))
-              else if (state is LoanScheduleLoaded)
-                _ScheduleTable(schedule: state.schedule, cs: cs)
-              else if (state is LoanError)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Icon(Icons.error_outline,
-                            color: cs.error, size: 40),
-                        const SizedBox(height: 8),
-                        Text(state.message,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: cs.error)),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () => context.read<LoanBloc>().add(
-                              LoanScheduleRequested(
-                                  loanId: loan.id,
-                                  memberId: member['id'] as String)),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
+              _CollapsibleSchedule(state: state, loan: loan, member: member, cs: cs),
 
               const SizedBox(height: 32),
             ],
@@ -172,9 +133,27 @@ class _SummaryCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loan.loanNumber,
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 12)),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: loan.loanNumber));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Loan number copied'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Text(loan.loanNumber,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.copy,
+                            color: Colors.white38, size: 12),
+                      ],
+                    ),
+                  ),
                   if (product != null)
                     Text(product!.rateLabel,
                         style: const TextStyle(
@@ -404,12 +383,130 @@ class _DateItem extends StatelessWidget {
       );
 }
 
+// ── Collapsible schedule ──────────────────────────────────────────────────────
+
+class _CollapsibleSchedule extends StatefulWidget {
+  final LoanState state;
+  final LoanModel loan;
+  final Map<String, dynamic> member;
+  final ColorScheme cs;
+  const _CollapsibleSchedule(
+      {required this.state,
+      required this.loan,
+      required this.member,
+      required this.cs});
+
+  @override
+  State<_CollapsibleSchedule> createState() => _CollapsibleScheduleState();
+}
+
+class _CollapsibleScheduleState extends State<_CollapsibleSchedule> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Text('Repayment Schedule',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                if (state is LoanScheduleLoaded)
+                  Text('${state.schedule.length} months',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: widget.cs.onSurface.withValues(alpha: 0.5))),
+                const SizedBox(width: 4),
+                Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: widget.cs.onSurface.withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (state is LoanLoading)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ))
+        else if (state is LoanError)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, color: widget.cs.error, size: 40),
+                  const SizedBox(height: 8),
+                  Text(state.message,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: widget.cs.error)),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => context.read<LoanBloc>().add(
+                        LoanScheduleRequested(
+                            loanId: widget.loan.id,
+                            memberId: widget.member['id'] as String)),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (state is LoanScheduleLoaded) ...[
+          // Always show first 3 rows as preview
+          _ScheduleTable(
+            schedule: _expanded
+                ? state.schedule
+                : state.schedule.take(3).toList(),
+            cs: widget.cs,
+            amountRepaid: widget.loan.amountRepaid,
+            monthlyRepayment: widget.loan.monthlyRepayment,
+          ),
+          if (!_expanded && state.schedule.length > 3)
+            TextButton(
+              onPressed: () => setState(() => _expanded = true),
+              child: Text(
+                  'Show all ${state.schedule.length} months'),
+            ),
+          if (_expanded)
+            TextButton(
+              onPressed: () => setState(() => _expanded = false),
+              child: const Text('Collapse'),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
 // ── Amortization schedule table ───────────────────────────────────────────────
 
 class _ScheduleTable extends StatelessWidget {
   final List<AmortizationEntry> schedule;
   final ColorScheme cs;
-  const _ScheduleTable({required this.schedule, required this.cs});
+  final double amountRepaid;
+  final double monthlyRepayment;
+  const _ScheduleTable(
+      {required this.schedule,
+      required this.cs,
+      this.amountRepaid = 0,
+      this.monthlyRepayment = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +548,11 @@ class _ScheduleTable extends StatelessWidget {
             ),
           ),
           // Rows
-          ...schedule.map((e) => _ScheduleRow(entry: e, cs: cs)),
+          ...schedule.map((e) => _ScheduleRow(
+              entry: e,
+              cs: cs,
+              isPaid: monthlyRepayment > 0 &&
+                  e.month <= (amountRepaid / monthlyRepayment).floor())),
         ],
       ),
     );
@@ -477,29 +578,45 @@ class _Hdr extends StatelessWidget {
 class _ScheduleRow extends StatelessWidget {
   final AmortizationEntry entry;
   final ColorScheme cs;
-  const _ScheduleRow({required this.entry, required this.cs});
+  final bool isPaid;
+  const _ScheduleRow(
+      {required this.entry, required this.cs, this.isPaid = false});
 
   @override
   Widget build(BuildContext context) {
     final isEven = entry.month % 2 == 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: isEven
-          ? cs.onSurface.withValues(alpha: 0.03)
-          : Colors.transparent,
+      color: isPaid
+          ? Colors.green.withValues(alpha: 0.06)
+          : isEven
+              ? cs.onSurface.withValues(alpha: 0.03)
+              : Colors.transparent,
       child: Row(
         children: [
           Expanded(
               flex: 1,
-              child: Text('${entry.month}',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: cs.onSurface.withValues(alpha: 0.6)))),
+              child: Row(
+                children: [
+                  if (isPaid)
+                    const Icon(Icons.check_circle,
+                        color: Colors.green, size: 10)
+                  else
+                    Text('${entry.month}',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.6))),
+                ],
+              )),
           Expanded(
               flex: 3,
               child: Text(_fmt(entry.payment),
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600))),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isPaid
+                          ? Colors.green.shade700
+                          : cs.onSurface))),
           Expanded(
               flex: 3,
               child: Text(_fmt(entry.principal),

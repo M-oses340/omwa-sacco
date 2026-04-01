@@ -1,13 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
-
 Deno.serve(async (req: Request) => {
-  // Read env vars inside handler so crashes are caught and logged
   const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY') ?? ''
   const INTASEND_PUB = Deno.env.get('INTASEND_PUBLISHABLE_KEY') ?? ''
   const INTASEND_SANDBOX = Deno.env.get('INTASEND_SANDBOX') === 'true'
@@ -16,15 +10,28 @@ Deno.serve(async (req: Request) => {
     : 'https://payment.intasend.com/api/v1'
 
   console.log('[CHECKOUT] secret prefix:', INTASEND_SECRET.substring(0, 15))
-  console.log('[CHECKOUT] pub prefix:', INTASEND_PUB.substring(0, 15))
   console.log('[CHECKOUT] sandbox:', INTASEND_SANDBOX)
 
   try {
+    // Create a user-scoped client using the request's Authorization header
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
+    console.log('[CHECKOUT] auth header present:', !!authHeader)
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    // Service client for DB operations
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+    // User client to verify the JWT
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader ?? '' } },
+    })
+
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    console.log('[CHECKOUT] user:', user?.id ?? 'null', 'error:', authError?.message ?? 'none')
+
     if (authError || !user) return json({ error: 'Unauthorized' }, 401)
 
     const { amount } = await req.json()
@@ -32,7 +39,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Minimum deposit is KES 10' }, 400)
     }
 
-    const { data: member } = await supabase
+    const { data: member } = await supabaseAdmin
       .from('members')
       .select('id, full_name, email')
       .eq('user_id', user.id)
@@ -40,7 +47,7 @@ Deno.serve(async (req: Request) => {
 
     if (!member) return json({ error: 'Member not found' }, 404)
 
-    const { data: fosa } = await supabase
+    const { data: fosa } = await supabaseAdmin
       .from('fosa_accounts')
       .select('id')
       .eq('member_id', member.id)
@@ -50,7 +57,7 @@ Deno.serve(async (req: Request) => {
 
     const reference = `DEP-${Date.now()}`
 
-    const { data: tx } = await supabase
+    const { data: tx } = await supabaseAdmin
       .from('transactions')
       .insert({
         member_id: member.id,
@@ -79,8 +86,7 @@ Deno.serve(async (req: Request) => {
       redirect_url: 'https://omwasacco.app/payment/callback',
     })
 
-    console.log('[CHECKOUT] Calling IntaSend:', INTASEND_BASE)
-    console.log('[CHECKOUT] Body:', body)
+    console.log('[CHECKOUT] calling IntaSend:', INTASEND_BASE)
 
     const res = await fetch(`${INTASEND_BASE}/checkout/`, {
       method: 'POST',
@@ -109,7 +115,7 @@ Deno.serve(async (req: Request) => {
       transaction_id: tx!.id,
     })
   } catch (e) {
-    console.error('[CHECKOUT] Exception:', (e as Error).message)
+    console.error('[CHECKOUT] Exception:', (e as Error).message, (e as Error).stack)
     return json({ error: (e as Error).message }, 500)
   }
 })

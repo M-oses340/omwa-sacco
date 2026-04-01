@@ -16,7 +16,7 @@ class LoanProductCard extends StatelessWidget {
     required this.onApply,
   });
 
-  Color _accentColor() {
+  Color _accent() {
     switch (product.category) {
       case LoanCategory.bosa:
         return AppColors.loanBosa;
@@ -27,168 +27,167 @@ class LoanProductCard extends StatelessWidget {
     }
   }
 
+  IconData _icon() {
+    switch (product.category) {
+      case LoanCategory.fosaAdvance:
+        return Icons.account_balance;
+      case LoanCategory.special:
+        return Icons.flash_on;
+      default:
+        return Icons.savings;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final accent = _accentColor();
+    final accent = _accent();
     final limit = bosaSavings > 0 && product.depositMultiplier > 0
         ? bosaSavings * product.depositMultiplier
         : null;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [accent, accent.withValues(alpha: 0.78)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: accent.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Colored accent strip
-            Container(
-              height: 4,
-              color: accent,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            // ── Header row ──────────────────────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(_icon(), color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Icon
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          product.category == LoanCategory.fosaAdvance
-                              ? Icons.account_balance
-                              : product.category == LoanCategory.special
-                                  ? Icons.flash_on
-                                  : Icons.savings,
-                          color: accent,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(product.displayName,
-                                style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 2),
-                            Text(product.rateLabel,
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: accent,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                      // Duration badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('${product.maxMonths}mo',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: accent,
-                                fontWeight: FontWeight.w700)),
-                      ),
+                      Text(product.displayName,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white)),
+                      const SizedBox(height: 2),
+                      Text(product.rateLabel,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500)),
                     ],
                   ),
-                  if (limit != null || product.notes != null) ...[
-                    const SizedBox(height: 10),
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-                  ],
-                  if (limit != null)
-                    Row(
-                      children: [
-                        Icon(Icons.account_balance_wallet_outlined,
-                            size: 13,
-                            color: cs.onSurface.withValues(alpha: 0.5)),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Your limit: KES ${limit.toStringAsFixed(0)}',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: cs.primary,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  if (product.notes != null) ...[
-                    const SizedBox(height: 4),
-                    Text(product.notes!,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurface.withValues(alpha: 0.5))),
-                  ],
-                  if (product.noDividends || product.salaryRequired) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        if (product.noDividends)
-                          const _Tag('No dividends', AppColors.statusPending),
-                        if (product.salaryRequired)
-                          const _Tag('Salary via FOSA', AppColors.loanSalary),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  BlocBuilder<LoanBloc, LoanState>(
-                    builder: (ctx, state) {
-                      if (state is! LoanHistoryLoaded) {
-                        return _ApplyButton(
-                            onTap: onApply, accent: accent);
-                      }
-                      final activeLoan = state.loans
-                          .where((l) =>
-                              l.status == 'pending' ||
-                              l.status == 'approved' ||
-                              l.status == 'disbursed')
-                          .firstOrNull;
-                      if (activeLoan != null) {
-                        return SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: null,
-                            icon: const Icon(Icons.lock_outline, size: 14),
-                            label: Text(
-                              'Active ${activeLoan.status} loan',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        );
-                      }
-                      return _ApplyButton(onTap: onApply, accent: accent);
-                    },
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Text('${product.maxMonths}mo',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+
+            // ── Limit / notes ────────────────────────────────────────────────
+            if (limit != null || product.notes != null) ...[
+              const SizedBox(height: 10),
+              Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
+              const SizedBox(height: 10),
+            ],
+            if (limit != null)
+              Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet_outlined,
+                      size: 13, color: Colors.white70),
+                  const SizedBox(width: 5),
+                  Text('Your limit: KES ${limit.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
+            if (product.notes != null) ...[
+              const SizedBox(height: 4),
+              Text(product.notes!,
+                  style: const TextStyle(fontSize: 11, color: Colors.white70)),
+            ],
+            if (product.noDividends || product.salaryRequired) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                children: [
+                  if (product.noDividends)
+                    const _WhiteTag('No dividends'),
+                  if (product.salaryRequired)
+                    const _WhiteTag('Salary via FOSA'),
+                ],
+              ),
+            ],
+
+            // ── Apply button ─────────────────────────────────────────────────
+            const SizedBox(height: 14),
+            BlocBuilder<LoanBloc, LoanState>(
+              builder: (ctx, state) {
+                if (state is! LoanHistoryLoaded) {
+                  return _ApplyButton(onTap: onApply);
+                }
+                final activeLoan = state.loans
+                    .where((l) =>
+                        l.status == 'pending' ||
+                        l.status == 'approved' ||
+                        l.status == 'disbursed')
+                    .firstOrNull;
+                if (activeLoan != null) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.lock_outline,
+                            size: 14, color: Colors.white70),
+                        const SizedBox(width: 6),
+                        Text('Active ${activeLoan.status} loan',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.white70)),
+                      ],
+                    ),
+                  );
+                }
+                return _ApplyButton(onTap: onApply);
+              },
             ),
           ],
         ),
@@ -199,8 +198,7 @@ class LoanProductCard extends StatelessWidget {
 
 class _ApplyButton extends StatelessWidget {
   final VoidCallback onTap;
-  final Color accent;
-  const _ApplyButton({required this.onTap, required this.accent});
+  const _ApplyButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -208,22 +206,43 @@ class _ApplyButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: onTap,
           style: ElevatedButton.styleFrom(
-            backgroundColor: accent,
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
             elevation: 0,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
           ),
           child: const Text('Apply Now',
-              style: TextStyle(fontWeight: FontWeight.w600)),
+              style: TextStyle(fontWeight: FontWeight.w700)),
         ),
       );
 }
 
+class _WhiteTag extends StatelessWidget {
+  final String label;
+  const _WhiteTag(this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label,
+            style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white,
+                fontWeight: FontWeight.w600)),
+      );
+}
+
+// Keep _Tag for any external use
 class _Tag extends StatelessWidget {
   final String label;
   final Color color;
   const _Tag(this.label, this.color);
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -233,8 +252,6 @@ class _Tag extends StatelessWidget {
         ),
         child: Text(label,
             style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: FontWeight.w600)),
+                fontSize: 10, color: color, fontWeight: FontWeight.w600)),
       );
 }

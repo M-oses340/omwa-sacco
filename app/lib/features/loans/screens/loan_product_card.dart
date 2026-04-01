@@ -42,10 +42,10 @@ class LoanProductCard extends StatelessWidget {
                           fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
                 if (product.noDividends)
-                  _Tag('No dividends', Colors.orange),
+                  const _Tag('No dividends', Colors.orange),
                 if (product.salaryRequired) ...[
                   const SizedBox(width: 4),
-                  _Tag('Salary via FOSA', Colors.blue),
+                  const _Tag('Salary via FOSA', Colors.blue),
                 ],
               ],
             ),

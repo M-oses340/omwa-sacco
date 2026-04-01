@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../bloc/loan_bloc.dart';
 import '../models/loan_product.dart';
 import 'loan_apply_sheet.dart';
 import 'loan_product_card.dart';

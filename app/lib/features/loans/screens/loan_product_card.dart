@@ -237,21 +237,3 @@ class _WhiteTag extends StatelessWidget {
       );
 }
 
-// Keep _Tag for any external use
-class _Tag extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Tag(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-      );
-}

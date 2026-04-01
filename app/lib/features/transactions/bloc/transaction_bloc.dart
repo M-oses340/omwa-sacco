@@ -17,12 +17,31 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
+  /// Returns a fresh access token, refreshing the session if it's within
+  /// 5 minutes of expiry or already expired.
+  Future<String?> _freshToken() async {
+    final session = _supabase.auth.currentSession;
+    if (session == null) return null;
+
+    final expiresAt = session.expiresAt;
+    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final bufferSecs = 300; // refresh if < 5 min left
+
+    if (expiresAt != null && expiresAt - nowSecs < bufferSecs) {
+      debugPrint('[AUTH] Token expiring soon, refreshing...');
+      final refreshed = await _supabase.auth.refreshSession();
+      return refreshed.session?.accessToken;
+    }
+
+    return session.accessToken;
+  }
+
   Future<void> _onDepositInitiated(
       DepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) {
+      final token = await _freshToken();
+      if (token == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
       }
@@ -33,7 +52,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return await _supabase.functions.invoke(
           'initiate-checkout',
           body: {'amount': event.amount},
-          headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          headers: {'Authorization': 'Bearer $token'},
         );
       });
 
@@ -62,14 +81,13 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       WithdrawInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final session = _supabase.auth.currentSession;
+      final token = await _freshToken();
       debugPrint('[WITHDRAW] amount=${event.amount} phone=${event.phoneNumber}');
-      if (session == null) {
+      if (token == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
       }
 
-      // Get FOSA account balance
       final fosa = await ConnectivityService.instance.guard(() => _supabase
           .from('fosa_accounts')
           .select('id, balance, account_number')
@@ -91,7 +109,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'phone': event.phoneNumber,
               'method': 'mpesa',
             },
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -142,8 +160,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       InternalTransferInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) {
+      final token = await _freshToken();
+      if (token == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
       }
@@ -157,7 +175,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'amount': event.amount,
               'note': event.note,
             },
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -178,8 +196,8 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       ExternalTransferInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) {
+      final token = await _freshToken();
+      if (token == null) {
         emit(TransactionError('Session expired. Please log in again.'));
         return;
       }
@@ -194,7 +212,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'account_name': event.accountName,
               'amount': event.amount,
             },
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

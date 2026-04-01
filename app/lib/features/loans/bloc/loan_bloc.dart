@@ -19,6 +19,20 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
+  /// Returns a fresh access token, refreshing if within 5 min of expiry.
+  Future<String?> _freshToken() async {
+    final session = _supabase.auth.currentSession;
+    if (session == null) return null;
+    final expiresAt = session.expiresAt;
+    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (expiresAt != null && expiresAt - nowSecs < 300) {
+      debugPrint('[AUTH] Loan bloc refreshing token...');
+      final refreshed = await _supabase.auth.refreshSession();
+      return refreshed.session?.accessToken;
+    }
+    return session.accessToken;
+  }
+
   Future<void> _onHistoryRequested(
       LoanHistoryRequested event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
@@ -66,8 +80,8 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanApplicationSubmitted event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) {
+      final token = await _freshToken();
+      if (token == null) {
         emit(LoanError('Session expired. Please log in again.'));
         return;
       }
@@ -85,7 +99,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: payload,
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       debugPrint('[LOAN] Response: ${response.data}');
@@ -136,17 +150,14 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanScheduleRequested event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) {
-        emit(LoanError('Session expired.'));
-        return;
-      }
+      final token = await _freshToken();
+      if (token == null) { emit(LoanError('Session expired.')); return; }
       debugPrint('[LOAN] Fetching schedule for: ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'schedule', 'loan_id': event.loanId},
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -168,15 +179,15 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanRepaymentSubmitted event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final session = _supabase.auth.currentSession;
-      if (session == null) { emit(LoanError('Session expired.')); return; }
+      final token = await _freshToken();
+      if (token == null) { emit(LoanError('Session expired.')); return; }
 
       debugPrint('[LOAN] Repaying ${event.amount} on loan ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
-            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

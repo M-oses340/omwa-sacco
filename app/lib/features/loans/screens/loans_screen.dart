@@ -408,93 +408,87 @@ class _DashCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final enabled = onTap != null;
+    final cardColor = enabled ? color : color.withValues(alpha: 0.4);
 
     return Material(
-      color: cs.surface,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
-      elevation: 0,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border(
-              left: BorderSide(
-                color: enabled ? color : color.withValues(alpha: 0.2),
-                width: 4,
-              ),
+            gradient: LinearGradient(
+              colors: [
+                cardColor,
+                cardColor.withValues(alpha: 0.75),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: cardColor.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: enabled
-                      ? LinearGradient(
-                          colors: [
-                            color.withValues(alpha: 0.18),
-                            color.withValues(alpha: 0.08),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: enabled ? null : cs.onSurface.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon,
-                    color: enabled ? color : cs.onSurface.withValues(alpha: 0.3),
-                    size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: enabled
-                                ? cs.onSurface
-                                : cs.onSurface.withValues(alpha: 0.4))),
-                    const SizedBox(height: 3),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withValues(alpha: 0.55))),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (badge != null)
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 5),
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Text(badge!,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700)),
-                )
-              else
-                Icon(Icons.chevron_right,
-                    color: enabled
-                        ? color.withValues(alpha: 0.6)
-                        : cs.onSurface.withValues(alpha: 0.2),
-                    size: 20),
-            ],
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                      const SizedBox(height: 3),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (badge != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(badge!,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                  )
+                else
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white54, size: 20),
+              ],
+            ),
           ),
         ),
       ),

@@ -152,9 +152,9 @@ class LoanProductCard extends StatelessWidget {
                       spacing: 6,
                       children: [
                         if (product.noDividends)
-                          _Tag('No dividends', AppColors.statusPending),
+                          const _Tag('No dividends', AppColors.statusPending),
                         if (product.salaryRequired)
-                          _Tag('Salary via FOSA', AppColors.loanSalary),
+                          const _Tag('Salary via FOSA', AppColors.loanSalary),
                       ],
                     ),
                   ],
@@ -220,34 +220,10 @@ class _ApplyButton extends StatelessWidget {
       );
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final ColorScheme cs;
-  final Color? color;
-  const _InfoChip(this.icon, this.label, this.cs, {this.color});
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon,
-              size: 12,
-              color: color ?? cs.onSurface.withValues(alpha: 0.5)),
-          const SizedBox(width: 3),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 11,
-                  color: color ?? cs.onSurface.withValues(alpha: 0.6))),
-        ],
-      );
-}
-
 class _Tag extends StatelessWidget {
   final String label;
   final Color color;
   const _Tag(this.label, this.color);
-
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

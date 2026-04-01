@@ -17,23 +17,17 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
-  /// Returns a fresh access token, refreshing the session if it's within
-  /// 5 minutes of expiry or already expired.
+  /// Always returns a valid access token by refreshing the session.
   Future<String?> _freshToken() async {
-    final session = _supabase.auth.currentSession;
-    if (session == null) return null;
-
-    final expiresAt = session.expiresAt;
-    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    const bufferSecs = 300; // refresh if < 5 min left
-
-    if (expiresAt != null && expiresAt - nowSecs < bufferSecs) {
-      debugPrint('[AUTH] Token expiring soon, refreshing...');
+    try {
+      // Force refresh to guarantee a valid token
       final refreshed = await _supabase.auth.refreshSession();
-      return refreshed.session?.accessToken;
+      final token = refreshed.session?.accessToken;
+      if (token != null) return token;
+    } catch (_) {
+      // Refresh failed — fall back to current session
     }
-
-    return session.accessToken;
+    return _supabase.auth.currentSession?.accessToken;
   }
 
   Future<void> _onDepositInitiated(

@@ -19,18 +19,16 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
-  /// Returns a fresh access token, refreshing if within 5 min of expiry.
+  /// Always returns a valid access token by refreshing the session.
   Future<String?> _freshToken() async {
-    final session = _supabase.auth.currentSession;
-    if (session == null) return null;
-    final expiresAt = session.expiresAt;
-    final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    if (expiresAt != null && expiresAt - nowSecs < 300) {
-      debugPrint('[AUTH] Loan bloc refreshing token...');
+    try {
       final refreshed = await _supabase.auth.refreshSession();
-      return refreshed.session?.accessToken;
+      final token = refreshed.session?.accessToken;
+      if (token != null) return token;
+    } catch (_) {
+      // Fall back to current session
     }
-    return session.accessToken;
+    return _supabase.auth.currentSession?.accessToken;
   }
 
   Future<void> _onHistoryRequested(

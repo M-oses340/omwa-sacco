@@ -25,7 +25,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
     final expiresAt = session.expiresAt;
     final nowSecs = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final bufferSecs = 300; // refresh if < 5 min left
+    const bufferSecs = 300; // refresh if < 5 min left
 
     if (expiresAt != null && expiresAt - nowSecs < bufferSecs) {
       debugPrint('[AUTH] Token expiring soon, refreshing...');

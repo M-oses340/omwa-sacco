@@ -78,15 +78,30 @@ class LoanProductCard extends StatelessWidget {
               width: double.infinity,
               child: BlocBuilder<LoanBloc, LoanState>(
                 builder: (ctx, state) {
-                  final hasActive = state is LoanHistoryLoaded &&
-                      state.loans.any((l) =>
-                          l.status == 'pending' ||
-                          l.status == 'approved' ||
-                          l.status == 'disbursed');
+                  if (state is! LoanHistoryLoaded) {
+                    return OutlinedButton(
+                      onPressed: onApply,
+                      child: const Text('Apply'),
+                    );
+                  }
+                  final activeLoan = state.loans.where((l) =>
+                      l.status == 'pending' ||
+                      l.status == 'approved' ||
+                      l.status == 'disbursed').firstOrNull;
+
+                  if (activeLoan != null) {
+                    return OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.lock_outline, size: 14),
+                      label: Text(
+                        'You have an active ${activeLoan.status} loan',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    );
+                  }
                   return OutlinedButton(
-                    onPressed: hasActive ? null : onApply,
-                    child:
-                        Text(hasActive ? 'Active loan exists' : 'Apply'),
+                    onPressed: onApply,
+                    child: const Text('Apply'),
                   );
                 },
               ),

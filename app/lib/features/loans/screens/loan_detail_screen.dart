@@ -537,7 +537,7 @@ class _ScheduleTable extends StatelessWidget {
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(14)),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 _Hdr('Mo', flex: 1),
                 _Hdr('Payment', flex: 3),
@@ -568,7 +568,7 @@ class _Hdr extends StatelessWidget {
   Widget build(BuildContext context) => Expanded(
         flex: flex,
         child: Text(text,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary)),

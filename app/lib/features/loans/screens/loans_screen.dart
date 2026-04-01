@@ -332,9 +332,7 @@ class _ActiveLoanCard extends StatelessWidget {
     final progress = loan.totalRepayable > 0
         ? (loan.amountRepaid / loan.totalRepayable).clamp(0.0, 1.0)
         : 0.0;
-    final daysLeft = loan.dueDate != null
-        ? loan.dueDate!.difference(DateTime.now()).inDays
-        : null;
+    final daysLeft = loan.dueDate?.difference(DateTime.now()).inDays;
 
     return GestureDetector(
       onTap: () => Navigator.push(

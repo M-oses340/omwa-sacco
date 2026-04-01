@@ -171,9 +171,7 @@ class _LoansDashboard extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => BlocProvider.value(value: bloc, child: screen),
       ),
-    ).then((_) => context
-        .read<LoanBloc>()
-        .add(LoanHistoryRequested(member['id'] as String)));
+    ).then((_) => bloc.add(LoanHistoryRequested(member['id'] as String)));
   }
 }
 

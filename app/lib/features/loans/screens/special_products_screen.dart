@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/loan_product.dart';
-import 'bosa_loans_screen.dart' show _ProductCard;
 import 'loan_apply_sheet.dart';
+import 'loan_product_card.dart';
 
 class SpecialProductsScreen extends StatelessWidget {
   final Map<String, dynamic> member;
@@ -20,7 +20,7 @@ class SpecialProductsScreen extends StatelessWidget {
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: products.length,
-        itemBuilder: (_, i) => _ProductCard(
+        itemBuilder: (_, i) => LoanProductCard(
           product: products[i],
           bosaSavings: bosaSavings,
           onApply: () => LoanApplySheet.show(context,

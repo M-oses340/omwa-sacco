@@ -6,13 +6,19 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
-const INTASEND_PUB = Deno.env.get('INTASEND_PUBLISHABLE_KEY')!
-const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
-  ? 'https://sandbox.intasend.com/api/v1'
-  : 'https://payment.intasend.com/api/v1'
-
 Deno.serve(async (req: Request) => {
+  // Read env vars inside handler so crashes are caught and logged
+  const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY') ?? ''
+  const INTASEND_PUB = Deno.env.get('INTASEND_PUBLISHABLE_KEY') ?? ''
+  const INTASEND_SANDBOX = Deno.env.get('INTASEND_SANDBOX') === 'true'
+  const INTASEND_BASE = INTASEND_SANDBOX
+    ? 'https://sandbox.intasend.com/api/v1'
+    : 'https://payment.intasend.com/api/v1'
+
+  console.log('[CHECKOUT] secret prefix:', INTASEND_SECRET.substring(0, 15))
+  console.log('[CHECKOUT] pub prefix:', INTASEND_PUB.substring(0, 15))
+  console.log('[CHECKOUT] sandbox:', INTASEND_SANDBOX)
+
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Unauthorized' }, 401)
@@ -62,29 +68,38 @@ Deno.serve(async (req: Request) => {
     const firstName = nameParts[0]
     const lastName = nameParts.slice(1).join(' ') || ''
 
+    const body = JSON.stringify({
+      public_key: INTASEND_PUB,
+      amount,
+      currency: 'KES',
+      api_ref: reference,
+      email: member.email ?? '',
+      first_name: firstName,
+      last_name: lastName,
+      redirect_url: 'https://omwasacco.app/payment/callback',
+    })
+
+    console.log('[CHECKOUT] Calling IntaSend:', INTASEND_BASE)
+    console.log('[CHECKOUT] Body:', body)
+
     const res = await fetch(`${INTASEND_BASE}/checkout/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${INTASEND_SECRET}`,
       },
-      body: JSON.stringify({
-        public_key: INTASEND_PUB,
-        amount,
-        currency: 'KES',
-        api_ref: reference,
-        email: member.email ?? '',
-        first_name: firstName,
-        last_name: lastName,
-        redirect_url: 'https://omwasacco.app/payment/callback',
-      }),
+      body,
     })
 
     const data = await res.json()
+    console.log('[CHECKOUT] IntaSend status:', res.status)
     console.log('[CHECKOUT] IntaSend response:', JSON.stringify(data))
 
     if (!res.ok) {
-      const errMsg = (data as any)?.errors?.[0]?.detail ?? 'Failed to initiate payment'
+      const errMsg = (data as any)?.errors?.[0]?.detail
+        ?? (data as any)?.error
+        ?? (data as any)?.detail
+        ?? 'Failed to initiate payment'
       return json({ error: errMsg }, 500)
     }
 
@@ -94,7 +109,7 @@ Deno.serve(async (req: Request) => {
       transaction_id: tx!.id,
     })
   } catch (e) {
-    console.error('[CHECKOUT] Error:', (e as Error).message)
+    console.error('[CHECKOUT] Exception:', (e as Error).message)
     return json({ error: (e as Error).message }, 500)
   }
 })

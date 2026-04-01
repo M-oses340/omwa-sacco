@@ -97,7 +97,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: payload,
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       debugPrint('[LOAN] Response: ${response.data}');
@@ -155,7 +154,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'schedule', 'loan_id': event.loanId},
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -185,7 +183,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

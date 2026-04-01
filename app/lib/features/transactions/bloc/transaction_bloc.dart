@@ -46,7 +46,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         return await _supabase.functions.invoke(
           'initiate-checkout',
           body: {'amount': event.amount},
-          headers: {'Authorization': 'Bearer $token'},
+          // Don't pass headers — let supabase_flutter auto-inject auth
         );
       });
 
@@ -106,7 +106,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'phone': event.phoneNumber,
               'method': 'mpesa',
             },
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -172,7 +171,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'amount': event.amount,
               'note': event.note,
             },
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -209,7 +207,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'account_name': event.accountName,
               'amount': event.amount,
             },
-            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

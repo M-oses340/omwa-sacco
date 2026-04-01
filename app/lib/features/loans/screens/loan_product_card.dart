@@ -17,15 +17,12 @@ class LoanProductCard extends StatelessWidget {
   });
 
   Color _accent() {
-    switch (product.category) {
-      case LoanCategory.bosa:
-        return AppColors.loanBosa;
-      case LoanCategory.fosaAdvance:
-        return AppColors.loanSalary;
-      case LoanCategory.special:
-        return AppColors.loanSpecial;
-    }
+    // Use per-loan-type color if available, fall back to category color
+    final colors = AppColors.colorsForLoanType(product.loanType);
+    return colors[0];
   }
+
+  List<Color> _gradientColors() => AppColors.colorsForLoanType(product.loanType);
 
   IconData _icon() {
     switch (product.category) {
@@ -41,6 +38,7 @@ class LoanProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _accent();
+    final gradientColors = _gradientColors();
     final limit = bosaSavings > 0 && product.depositMultiplier > 0
         ? bosaSavings * product.depositMultiplier
         : null;
@@ -49,7 +47,7 @@ class LoanProductCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [accent, accent.withValues(alpha: 0.78)],
+          colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

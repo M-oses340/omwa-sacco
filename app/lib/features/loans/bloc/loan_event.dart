@@ -32,3 +32,9 @@ class LoanScheduleRequested extends LoanEvent {
   final String memberId;
   LoanScheduleRequested({required this.loanId, required this.memberId});
 }
+
+class LoanRepaymentSubmitted extends LoanEvent {
+  final String loanId;
+  final double amount;
+  LoanRepaymentSubmitted({required this.loanId, required this.amount});
+}

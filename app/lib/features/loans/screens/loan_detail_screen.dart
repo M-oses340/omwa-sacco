@@ -46,7 +46,29 @@ class _LoanDetailView extends StatelessWidget {
           ),
         ],
       ),
-      body: BlocBuilder<LoanBloc, LoanState>(
+      bottomNavigationBar: loan.status == 'disbursed'
+          ? _RepayBar(loan: loan)
+          : null,
+      body: BlocConsumer<LoanBloc, LoanState>(
+        listener: (context, state) {
+          if (state is LoanRepaymentSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  'KES ${state.amountPaid.toStringAsFixed(2)} repaid. Balance: KES ${state.balanceAfter.toStringAsFixed(2)}'),
+              backgroundColor: Colors.green,
+            ));
+            // Reload schedule with updated data
+            context.read<LoanBloc>().add(LoanScheduleRequested(
+                loanId: loan.id, memberId: member['id'] as String));
+          } else if (state is LoanError) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(state.message),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ));
+            context.read<LoanBloc>().add(LoanScheduleRequested(
+                loanId: loan.id, memberId: member['id'] as String));
+          }
+        },
         builder: (context, state) {
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -534,5 +556,231 @@ class _StatusBadge extends StatelessWidget {
                 color: _color(),
                 fontSize: 11,
                 fontWeight: FontWeight.bold)),
+      );
+}
+
+// ── Repay bottom bar ──────────────────────────────────────────────────────────
+
+class _RepayBar extends StatelessWidget {
+  final LoanModel loan;
+  const _RepayBar({required this.loan});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: BlocBuilder<LoanBloc, LoanState>(
+          builder: (context, state) => ElevatedButton.icon(
+            onPressed: state is LoanLoading
+                ? null
+                : () => _showRepaySheet(context),
+            icon: const Icon(Icons.payment),
+            label: Text(
+                'Make Repayment · KES ${loan.outstandingBalance.toStringAsFixed(0)} outstanding'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRepaySheet(BuildContext context) {
+    final bloc = context.read<LoanBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => BlocProvider.value(
+        value: bloc,
+        child: _RepaySheet(loan: loan),
+      ),
+    );
+  }
+}
+
+class _RepaySheet extends StatefulWidget {
+  final LoanModel loan;
+  const _RepaySheet({required this.loan});
+
+  @override
+  State<_RepaySheet> createState() => _RepaySheetState();
+}
+
+class _RepaySheetState extends State<_RepaySheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountCtrl = TextEditingController();
+  bool _payFull = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountCtrl.text = widget.loan.monthlyRepayment.toStringAsFixed(2);
+  }
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  double get _amount =>
+      double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    final outstanding = widget.loan.outstandingBalance;
+
+    return BlocListener<LoanBloc, LoanState>(
+      listener: (context, state) {
+        if (state is LoanRepaymentSuccess || state is LoanError) {
+          Navigator.pop(context);
+        }
+      },
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + viewInsets.bottom),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Make Repayment',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text('Outstanding: KES ${outstanding.toStringAsFixed(2)}',
+                  style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13)),
+              const SizedBox(height: 16),
+
+              // Quick options
+              Row(
+                children: [
+                  _QuickBtn(
+                    label: 'Monthly\nKES ${widget.loan.monthlyRepayment.toStringAsFixed(0)}',
+                    onTap: () => setState(() {
+                      _payFull = false;
+                      _amountCtrl.text = widget.loan.monthlyRepayment.toStringAsFixed(2);
+                    }),
+                    selected: !_payFull,
+                    cs: cs,
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickBtn(
+                    label: 'Full Balance\nKES ${outstanding.toStringAsFixed(0)}',
+                    onTap: () => setState(() {
+                      _payFull = true;
+                      _amountCtrl.text = outstanding.toStringAsFixed(2);
+                    }),
+                    selected: _payFull,
+                    cs: cs,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              TextFormField(
+                controller: _amountCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                    labelText: 'Amount (KES)', prefixText: 'KES '),
+                onChanged: (_) => setState(() => _payFull = false),
+                validator: (v) {
+                  final val = double.tryParse(v?.replaceAll(',', '') ?? '');
+                  if (val == null || val <= 0) return 'Enter a valid amount';
+                  if (val > outstanding + 0.01) {
+                    return 'Cannot exceed outstanding balance of KES ${outstanding.toStringAsFixed(2)}';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              BlocBuilder<LoanBloc, LoanState>(
+                builder: (ctx, state) => SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: state is LoanLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 52)),
+                    child: state is LoanLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : Text('Pay KES ${_amount.toStringAsFixed(2)}'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    context.read<LoanBloc>().add(LoanRepaymentSubmitted(
+        loanId: widget.loan.id, amount: _amount));
+  }
+}
+
+class _QuickBtn extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  final ColorScheme cs;
+  const _QuickBtn(
+      {required this.label,
+      required this.onTap,
+      required this.selected,
+      required this.cs});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? cs.primaryContainer
+                  : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+              border: selected
+                  ? Border.all(color: cs.primary, width: 1.5)
+                  : null,
+            ),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? cs.primary : cs.onSurface)),
+          ),
+        ),
       );
 }

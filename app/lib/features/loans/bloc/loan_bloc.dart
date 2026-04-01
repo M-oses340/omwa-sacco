@@ -16,6 +16,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanApplicationSubmitted>(_onApplicationSubmitted);
     on<LoanCancellationRequested>(_onCancellationRequested);
     on<LoanScheduleRequested>(_onScheduleRequested);
+    on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
   Future<void> _onHistoryRequested(
@@ -159,6 +160,40 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       emit(LoanError('Could not load schedule.'));
     } catch (e) {
       debugPrint('[LOAN] Schedule error: $e');
+      emit(LoanError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onRepaymentSubmitted(
+      LoanRepaymentSubmitted event, Emitter<LoanState> emit) async {
+    emit(LoanLoading());
+    try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) { emit(LoanError('Session expired.')); return; }
+
+      debugPrint('[LOAN] Repaying ${event.amount} on loan ${event.loanId}');
+      final response = await ConnectivityService.instance.guard(() =>
+          _supabase.functions.invoke(
+            'process-loan',
+            body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
+            headers: {'Authorization': 'Bearer ${session.accessToken}'},
+          ));
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        debugPrint('[LOAN] Repayment success, balance: ${data['balance_after']}');
+        emit(LoanRepaymentSuccess(
+          amountPaid: (data['amount_paid'] as num).toDouble(),
+          balanceAfter: (data['balance_after'] as num).toDouble(),
+        ));
+      } else {
+        emit(LoanError(data['error'] ?? 'Repayment failed'));
+      }
+    } on FunctionException catch (e) {
+      debugPrint('[LOAN] Repayment FunctionException: ${e.details}');
+      emit(LoanError('Service error. Please try again.'));
+    } catch (e) {
+      debugPrint('[LOAN] Repayment error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }

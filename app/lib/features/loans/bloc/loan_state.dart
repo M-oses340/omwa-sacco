@@ -26,6 +26,12 @@ class LoanScheduleLoaded extends LoanState {
   LoanScheduleLoaded(this.schedule);
 }
 
+class LoanRepaymentSuccess extends LoanState {
+  final double amountPaid;
+  final double balanceAfter;
+  LoanRepaymentSuccess({required this.amountPaid, required this.balanceAfter});
+}
+
 class LoanError extends LoanState {
   final String message;
   LoanError(this.message);

@@ -11,6 +11,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
   TransactionBloc() : super(TransactionInitial()) {
     on<DepositInitiated>(_onDepositInitiated);
+    on<CardDepositInitiated>(_onCardDepositInitiated);
     on<CheckoutCompleted>(_onCheckoutCompleted);
     on<WithdrawInitiated>(_onWithdrawInitiated);
     on<InternalTransferInitiated>(_onInternalTransfer);
@@ -58,7 +59,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       try {
         response = await ConnectivityService.instance.guard(() async {
           return await _supabase.functions.invoke(
-            'checkout',
+            'initiate-deposit',
             body: {'amount': event.amount},
             headers: {'Authorization': 'Bearer $token'},
           );
@@ -74,7 +75,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           }
           response = await ConnectivityService.instance.guard(() async {
             return await _supabase.functions.invoke(
-              'checkout',
+              'initiate-deposit',
               body: {'amount': event.amount},
               headers: {'Authorization': 'Bearer $retryToken'},
             );
@@ -89,10 +90,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       debugPrint('[TRANSACTION] Response data: $data');
 
       if (data['success'] == true) {
-        emit(TransactionCheckoutReady(
-          checkoutUrl: data['checkout_url'],
-          transactionId: data['transaction_id'],
-          amount: event.amount,
+        // STK push sent — no checkout URL
+        emit(TransactionSuccess(
+          'M-Pesa prompt sent. Enter your PIN to complete the KES ${event.amount.toStringAsFixed(2)} deposit.',
         ));
       } else {
         emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
@@ -107,6 +107,49 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       emit(TransactionError(msg));
     } catch (e) {
       debugPrint('[TRANSACTION] Error: $e');
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onCardDepositInitiated(
+      CardDepositInitiated event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      final token = await _freshToken();
+      if (token == null) {
+        emit(TransactionError('Session expired. Please log in again.'));
+        return;
+      }
+
+      debugPrint('[TRANSACTION] Card deposit for KES ${event.amount}');
+
+      final response = await ConnectivityService.instance.guard(() async {
+        return await _supabase.functions.invoke(
+          'initiate-checkout',
+          body: {'amount': event.amount},
+          headers: {'Authorization': 'Bearer $token'},
+        );
+      });
+
+      final data = response.data as Map<String, dynamic>;
+      debugPrint('[TRANSACTION] Card deposit response: $data');
+
+      if (data['success'] == true) {
+        emit(TransactionCheckoutReady(
+          checkoutUrl: data['checkout_url'],
+          transactionId: data['transaction_id'],
+          amount: event.amount,
+        ));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
+      }
+    } on FunctionException catch (e) {
+      debugPrint('[TRANSACTION] Card deposit error: ${e.status} ${e.details}');
+      final msg = (e.details is Map && (e.details as Map)['error'] != null)
+          ? (e.details as Map)['error'].toString()
+          : 'Payment service error. Please try again.';
+      emit(TransactionError(msg));
+    } catch (e) {
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }

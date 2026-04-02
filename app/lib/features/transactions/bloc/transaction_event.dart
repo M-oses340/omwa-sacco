@@ -8,6 +8,13 @@ class DepositInitiated extends TransactionEvent {
   DepositInitiated({required this.memberId, required this.amount});
 }
 
+// Card/bank deposit via IntaSend checkout URL (WebView)
+class CardDepositInitiated extends TransactionEvent {
+  final String memberId;
+  final double amount;
+  CardDepositInitiated({required this.memberId, required this.amount});
+}
+
 class CheckoutCompleted extends TransactionEvent {
   final String transactionId;
   final bool success;

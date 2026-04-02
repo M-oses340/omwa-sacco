@@ -27,6 +27,7 @@ class _DepositSheet extends StatefulWidget {
 class _DepositSheetState extends State<_DepositSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  bool _useMpesa = true;
 
   @override
   void dispose() {
@@ -37,9 +38,15 @@ class _DepositSheetState extends State<_DepositSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.parse(_amountController.text.trim());
-    context.read<TransactionBloc>().add(
-          DepositInitiated(memberId: widget.member['id'], amount: amount),
-        );
+    if (_useMpesa) {
+      context.read<TransactionBloc>().add(
+            DepositInitiated(memberId: widget.member['id'], amount: amount),
+          );
+    } else {
+      context.read<TransactionBloc>().add(
+            CardDepositInitiated(memberId: widget.member['id'], amount: amount),
+          );
+    }
   }
 
   Future<void> _openCheckout(TransactionCheckoutReady state) async {
@@ -50,12 +57,8 @@ class _DepositSheetState extends State<_DepositSheet> {
       ),
     );
     if (!mounted) return;
-
     if (result == true) {
-      // Close the deposit sheet immediately so there's no flash
       Navigator.of(context).pop(true);
-      // Then let the bloc verify in the background — success dialog
-      // is shown from dashboard via the refreshed state
       context.read<TransactionBloc>().add(CheckoutCompleted(
             transactionId: state.transactionId,
             success: true,
@@ -78,6 +81,8 @@ class _DepositSheetState extends State<_DepositSheet> {
       listener: (context, state) {
         if (state is TransactionCheckoutReady) {
           _openCheckout(state);
+        } else if (state is TransactionSuccess) {
+          Navigator.of(context).pop(true);
         } else if (state is TransactionError) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(state.message),
@@ -98,7 +103,6 @@ class _DepositSheetState extends State<_DepositSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Handle bar
                 Center(
                   child: Container(
                     width: 40,
@@ -110,7 +114,6 @@ class _DepositSheetState extends State<_DepositSheet> {
                     ),
                   ),
                 ),
-                // Title row
                 Row(
                   children: [
                     Container(
@@ -129,17 +132,43 @@ class _DepositSheetState extends State<_DepositSheet> {
                         Text('Deposit to FOSA',
                             style: tt.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.bold)),
-                        Text('Deposit via M-Pesa or Card',
-                            style: tt.bodySmall
-                                ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
+                        Text('Choose payment method',
+                            style: tt.bodySmall?.copyWith(
+                                color: cs.onSurface.withValues(alpha: 0.6))),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MethodCard(
+                        icon: Icons.phone_android,
+                        label: 'M-Pesa',
+                        subtitle: 'STK Push',
+                        selected: _useMpesa,
+                        color: Colors.green,
+                        onTap: () => setState(() => _useMpesa = true),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _MethodCard(
+                        icon: Icons.credit_card,
+                        label: 'Card / Bank',
+                        subtitle: 'Checkout',
+                        selected: !_useMpesa,
+                        color: Colors.blue,
+                        onTap: () => setState(() => _useMpesa = false),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Text('Quick amounts',
-                    style: tt.labelMedium
-                        ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6))),
+                    style: tt.labelMedium?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.6))),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -193,9 +222,17 @@ class _DepositSheetState extends State<_DepositSheet> {
                             height: 20,
                             child: CircularProgressIndicator(
                                 color: cs.onPrimary, strokeWidth: 2))
-                        : Icon(Icons.payment, color: cs.onPrimary),
+                        : Icon(
+                            _useMpesa
+                                ? Icons.phone_android
+                                : Icons.credit_card,
+                            color: cs.onPrimary),
                     label: Text(
-                      isLoading ? 'Processing...' : 'Deposit',
+                      isLoading
+                          ? 'Processing...'
+                          : _useMpesa
+                              ? 'Send M-Pesa Prompt'
+                              : 'Continue to Checkout',
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -211,6 +248,68 @@ class _DepositSheetState extends State<_DepositSheet> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _MethodCard extends StatelessWidget {
+  final IconData icon;
+  final String label, subtitle;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+  const _MethodCard({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.1)
+              : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                color: selected
+                    ? color
+                    : cs.onSurface.withValues(alpha: 0.5),
+                size: 22),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: selected ? color : cs.onSurface)),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.5))),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const supabase = createClient(
@@ -10,14 +11,21 @@ const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
   ? 'https://sandbox.intasend.com/api/v1'
   : 'https://payment.intasend.com/api/v1'
 
-Deno.serve(async (req) => {
+function jwtUserId(authHeader: string | null): string | null {
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
+    if (!authHeader?.startsWith('Bearer ')) return null
+    const payload = authHeader.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const data = JSON.parse(atob(payload + '='.repeat((4 - payload.length % 4) % 4)))
+    if (data.role !== 'authenticated') return null
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null
+    return data.sub ?? null
+  } catch { return null }
+}
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+Deno.serve(async (req: Request) => {
+  try {
+    const userId = jwtUserId(req.headers.get('Authorization'))
+    if (!userId) return json({ error: 'Unauthorized' }, 401)
 
     const body = await req.json()
     const { type, amount } = body
@@ -28,7 +36,7 @@ Deno.serve(async (req) => {
     const { data: sender } = await supabase
       .from('members')
       .select('id, full_name, member_number')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!sender) return json({ error: 'Member not found' }, 404)

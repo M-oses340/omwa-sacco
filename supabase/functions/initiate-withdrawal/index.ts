@@ -12,36 +12,38 @@ const INTASEND_BASE = Deno.env.get('INTASEND_SANDBOX') === 'true'
   ? 'https://sandbox.intasend.com/api/v1'
   : 'https://payment.intasend.com/api/v1'
 
+function jwtUserId(authHeader: string | null): string | null {
+  try {
+    if (!authHeader?.startsWith('Bearer ')) return null
+    const payload = authHeader.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const data = JSON.parse(atob(payload + '='.repeat((4 - payload.length % 4) % 4)))
+    if (data.role !== 'authenticated') return null
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null
+    return data.sub ?? null
+  } catch { return null }
+}
+
 Deno.serve(async (req: Request) => {
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+    const userId = jwtUserId(req.headers.get('Authorization'))
+    if (!userId) return json({ error: 'Unauthorized' }, 401)
 
     const body = await req.json()
-
-    // Route: action=checkout → card/bank deposit; default → M-Pesa withdrawal
-    if (body.action === 'checkout') return await handleCheckout(user.id, body)
-    return await handleWithdrawal(user.id, body)
+    if (body.action === 'checkout') return await handleCheckout(userId, body)
+    return await handleWithdrawal(userId, body)
   } catch (e) {
     console.error('[FOSA] Error:', (e as Error).message)
     return json({ error: (e as Error).message }, 500)
   }
 })
 
-// ── Card/Bank deposit via IntaSend checkout URL ───────────────────────────────
 async function handleCheckout(userId: string, body: any) {
   const { amount } = body
   if (!amount || amount < 10) return json({ error: 'Minimum deposit is KES 10' }, 400)
 
   const { data: member } = await supabase
-    .from('members')
-    .select('id, full_name, email, phone_number, status')
-    .eq('user_id', userId)
-    .single()
+    .from('members').select('id, full_name, email, phone_number, status')
+    .eq('user_id', userId).single()
 
   if (!member) return json({ error: 'Member not found' }, 404)
   if (member.status !== 'active') return json({ error: 'Member account is not active' }, 403)
@@ -72,19 +74,17 @@ async function handleCheckout(userId: string, body: any) {
     }),
   })
 
-  const checkoutData = await checkoutRes.json()
-  console.log('[CHECKOUT] IntaSend:', checkoutRes.status, JSON.stringify(checkoutData))
+  const data = await checkoutRes.json()
+  console.log('[CHECKOUT] IntaSend:', checkoutRes.status, JSON.stringify(data))
 
-  if (!checkoutRes.ok || !checkoutData.url) {
+  if (!checkoutRes.ok || !data.url) {
     await supabase.from('transactions').update({ status: 'failed' }).eq('id', tx.id)
-    const errMsg = checkoutData?.errors?.[0]?.detail ?? checkoutData?.detail ?? checkoutData?.message ?? 'Payment initiation failed'
-    return json({ error: errMsg }, 500)
+    return json({ error: data?.errors?.[0]?.detail ?? data?.detail ?? data?.message ?? 'Payment initiation failed' }, 500)
   }
 
-  return json({ success: true, checkout_url: checkoutData.url, transaction_id: tx.id })
+  return json({ success: true, checkout_url: data.url, transaction_id: tx.id })
 }
 
-// ── M-Pesa B2C withdrawal ─────────────────────────────────────────────────────
 async function handleWithdrawal(userId: string, body: any) {
   const { amount } = body
   if (!amount || amount < 100) return json({ error: 'Minimum withdrawal is KES 100' }, 400)
@@ -99,9 +99,7 @@ async function handleWithdrawal(userId: string, body: any) {
   if (!fosa) return json({ error: 'FOSA account not found' }, 404)
 
   const balance = parseFloat(fosa.balance)
-  if (amount > balance) {
-    return json({ error: `Insufficient balance. Available: KES ${balance.toFixed(2)}` }, 400)
-  }
+  if (amount > balance) return json({ error: `Insufficient balance. Available: KES ${balance.toFixed(2)}` }, 400)
 
   const normalised = phone.startsWith('+') ? phone.slice(1)
     : phone.startsWith('0') ? `254${phone.slice(1)}` : phone
@@ -116,18 +114,11 @@ async function handleWithdrawal(userId: string, body: any) {
   })
 
   const data = await res.json()
-  console.log('[WITHDRAWAL] IntaSend:', JSON.stringify(data))
-
-  if (!res.ok) {
-    return json({ error: data?.errors?.[0]?.detail ?? 'M-Pesa withdrawal failed' }, 400)
-  }
+  if (!res.ok) return json({ error: data?.errors?.[0]?.detail ?? 'M-Pesa withdrawal failed' }, 400)
 
   const reference = `WDR-${Date.now()}`
   const newBalance = balance - amount
-
-  await supabase.from('fosa_accounts')
-    .update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', fosa.id)
-
+  await supabase.from('fosa_accounts').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', fosa.id)
   await supabase.from('transactions').insert({
     member_id: member.id, account_type: 'fosa', transaction_type: 'withdrawal',
     amount, balance_before: balance, balance_after: newBalance,
@@ -138,8 +129,5 @@ async function handleWithdrawal(userId: string, body: any) {
 }
 
 function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
 }

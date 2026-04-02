@@ -1,11 +1,22 @@
 // deno-lint-ignore-file no-explicit-any
-// All loans disbursed through FOSA.
+// All loans disbursed through FOSA. v2
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
+
+function jwtUserId(authHeader: string | null): string | null {
+  try {
+    if (!authHeader?.startsWith('Bearer ')) return null
+    const payload = authHeader.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const data = JSON.parse(atob(payload + '='.repeat((4 - payload.length % 4) % 4)))
+    if (data.role !== 'authenticated') return null
+    if (data.exp && data.exp < Math.floor(Date.now() / 1000)) return null
+    return data.sub ?? null
+  } catch { return null }
+}
 
 interface LoanProduct {
   displayName: string
@@ -126,15 +137,11 @@ async function nextLoanNumber(): Promise<string> {
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'Unauthorized' }, 401)
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+    const userId = jwtUserId(req.headers.get('Authorization'))
+    if (!userId) return json({ error: 'Unauthorized' }, 401)
 
     const { data: member } = await supabase
-      .from('members').select('id, status, role').eq('user_id', user.id).single()
+      .from('members').select('id, status, role').eq('user_id', userId).single()
 
     if (!member) return json({ error: 'Member not found' }, 404)
     if (member.status !== 'active') return json({ error: 'Your account is not active' }, 403)

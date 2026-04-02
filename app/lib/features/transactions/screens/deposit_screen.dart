@@ -27,7 +27,7 @@ class _DepositSheet extends StatefulWidget {
 class _DepositSheetState extends State<_DepositSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  bool _useMpesa = true;
+  bool _useMpesa = false; // unused — kept for state compatibility
 
   @override
   void dispose() {
@@ -38,15 +38,9 @@ class _DepositSheetState extends State<_DepositSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.parse(_amountController.text.trim());
-    if (_useMpesa) {
-      context.read<TransactionBloc>().add(
-            DepositInitiated(memberId: widget.member['id'], amount: amount),
-          );
-    } else {
-      context.read<TransactionBloc>().add(
-            CardDepositInitiated(memberId: widget.member['id'], amount: amount),
-          );
-    }
+    context.read<TransactionBloc>().add(
+          CardDepositInitiated(memberId: widget.member['id'], amount: amount),
+        );
   }
 
   Future<void> _openCheckout(TransactionCheckoutReady state) async {
@@ -126,7 +120,7 @@ class _DepositSheetState extends State<_DepositSheet> {
                       children: [
                         Text('Deposit to FOSA',
                             style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                        Text('Choose payment method',
+                        Text('Pay via M-Pesa, Card or Bank',
                             style: tt.bodySmall?.copyWith(
                                 color: cs.onSurface.withValues(alpha: 0.6))),
                       ],
@@ -134,29 +128,6 @@ class _DepositSheetState extends State<_DepositSheet> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Payment method toggle
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MethodCard(
-                        icon: Icons.phone_android, label: 'M-Pesa',
-                        subtitle: 'STK Push', selected: _useMpesa,
-                        color: Colors.green,
-                        onTap: () => setState(() => _useMpesa = true),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MethodCard(
-                        icon: Icons.credit_card, label: 'Card / Bank',
-                        subtitle: 'Checkout', selected: !_useMpesa,
-                        color: Colors.blue,
-                        onTap: () => setState(() => _useMpesa = false),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
                 Text('Quick amounts',
                     style: tt.labelMedium?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.6))),
@@ -208,13 +179,9 @@ class _DepositSheetState extends State<_DepositSheet> {
                             width: 20, height: 20,
                             child: CircularProgressIndicator(
                                 color: cs.onPrimary, strokeWidth: 2))
-                        : Icon(
-                            _useMpesa ? Icons.phone_android : Icons.credit_card,
-                            color: cs.onPrimary),
+                        : Icon(Icons.payment, color: cs.onPrimary),
                     label: Text(
-                      isLoading
-                          ? 'Processing...'
-                          : _useMpesa ? 'Send M-Pesa Prompt' : 'Continue to Checkout',
+                      isLoading ? 'Processing...' : 'Deposit',
                       style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w600,
                           color: cs.onPrimary),

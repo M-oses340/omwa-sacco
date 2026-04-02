@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Omwa Sacco - Deployment Script
-# Usage: ./scripts/deploy.sh [supabase|intasend|all]
+# Usage: ./scripts/deploy.sh [supabase|intasend|migrations|all]
+#
+# IMPORTANT: intasend functions are deployed from a temp directory.
+# They NEVER overwrite files in supabase/functions/.
 
 PROJECT_REF="rzkudmfuutszspzfhzne"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,23 +28,22 @@ deploy_supabase_functions() {
 
 deploy_intasend_functions() {
   echo "💳 Deploying IntaSend functions..."
+  TMPDIR=$(mktemp -d)
   for dir in "$ROOT_DIR/intasend/functions"/*/; do
     func_name=$(basename "$dir")
     if [ -f "$dir/index.ts" ]; then
-      # Only copy if a supabase function with this name doesn't already exist
-      if [ ! -d "$ROOT_DIR/supabase/functions/$func_name" ]; then
-        echo "  → Copying $func_name to supabase/functions/"
-        cp -r "$dir" "$ROOT_DIR/supabase/functions/$func_name"
-        echo "  → Deploying $func_name"
-        supabase functions deploy "$func_name" --no-verify-jwt
-        echo "  → Cleaning up temp copy"
-        rm -rf "$ROOT_DIR/supabase/functions/$func_name"
-      else
-        echo "  → Deploying $func_name (already in supabase/functions/)"
-        supabase functions deploy "$func_name" --no-verify-jwt
+      # Skip if already managed in supabase/functions/
+      if [ -d "$ROOT_DIR/supabase/functions/$func_name" ]; then
+        echo "  → Skipping $func_name (managed in supabase/functions/)"
+        continue
       fi
+      echo "  → Deploying $func_name from intasend/"
+      # Copy to temp dir and deploy from there — never touch supabase/functions/
+      cp -r "$dir" "$TMPDIR/$func_name"
+      supabase functions deploy "$func_name" --no-verify-jwt
     fi
   done
+  rm -rf "$TMPDIR"
   echo "✅ IntaSend functions deployed"
 }
 

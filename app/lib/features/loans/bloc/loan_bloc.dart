@@ -19,16 +19,23 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
-  /// Always returns a valid access token by refreshing the session.
+  /// Returns a valid access token, refreshing only if expiring within 2 minutes.
   Future<String?> _freshToken() async {
-    try {
-      final refreshed = await _supabase.auth.refreshSession();
-      final token = refreshed.session?.accessToken;
-      if (token != null) return token;
-    } catch (_) {
-      // Fall back to current session
+    final session = _supabase.auth.currentSession;
+    if (session == null) return null;
+    final expiresAt = session.expiresAt;
+    if (expiresAt != null) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (expiresAt - now < 120) {
+        try {
+          final refreshed = await _supabase.auth.refreshSession();
+          if (refreshed.session != null) return refreshed.session!.accessToken;
+        } catch (e) {
+          debugPrint('[LOAN] Token refresh failed: $e');
+        }
+      }
     }
-    return _supabase.auth.currentSession?.accessToken;
+    return session.accessToken;
   }
 
   Future<void> _onHistoryRequested(
@@ -97,6 +104,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: payload,
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       debugPrint('[LOAN] Response: ${response.data}');
@@ -154,6 +162,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'schedule', 'loan_id': event.loanId},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -183,6 +192,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
           _supabase.functions.invoke(
             'process-loan',
             body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

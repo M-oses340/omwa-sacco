@@ -17,17 +17,29 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
-  /// Always returns a valid access token by refreshing the session.
+  /// Returns a valid access token, refreshing if needed.
   Future<String?> _freshToken() async {
-    try {
-      // Force refresh to guarantee a valid token
-      final refreshed = await _supabase.auth.refreshSession();
-      final token = refreshed.session?.accessToken;
-      if (token != null) return token;
-    } catch (_) {
-      // Refresh failed — fall back to current session
+    final session = _supabase.auth.currentSession;
+    if (session == null) return null;
+
+    // Check if token expires within 2 minutes
+    final expiresAt = session.expiresAt;
+    if (expiresAt != null) {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (expiresAt - now < 120) {
+        debugPrint('[AUTH] Token expires soon, refreshing...');
+        try {
+          final refreshed = await _supabase.auth.refreshSession();
+          if (refreshed.session != null) {
+            debugPrint('[AUTH] Refresh successful');
+            return refreshed.session!.accessToken;
+          }
+        } catch (e) {
+          debugPrint('[AUTH] Refresh failed: $e');
+        }
+      }
     }
-    return _supabase.auth.currentSession?.accessToken;
+    return session.accessToken;
   }
 
   Future<void> _onDepositInitiated(
@@ -41,17 +53,41 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       }
 
       debugPrint('[TRANSACTION] Initiating checkout for KES ${event.amount}');
+      debugPrint('[TRANSACTION] Token: $token');
 
-      final response = await ConnectivityService.instance.guard(() async {
-        return await _supabase.functions.invoke(
-          'initiate-checkout',
-          body: {'amount': event.amount},
-          // Don't pass headers — let supabase_flutter auto-inject auth
-        );
-      });
+      FunctionResponse response;
+      try {
+        response = await ConnectivityService.instance.guard(() async {
+          return await _supabase.functions.invoke(
+            'checkout',
+            body: {'amount': event.amount},
+            headers: {'Authorization': 'Bearer $token'},
+          );
+        });
+      } on FunctionException catch (e) {
+        if (e.status == 500 || e.status == 401) {
+          debugPrint('[TRANSACTION] ${e.status} on first attempt, retrying...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          final retryToken = await _freshToken();
+          if (retryToken == null) {
+            emit(TransactionError('Session expired. Please log in again.'));
+            return;
+          }
+          response = await ConnectivityService.instance.guard(() async {
+            return await _supabase.functions.invoke(
+              'checkout',
+              body: {'amount': event.amount},
+              headers: {'Authorization': 'Bearer $retryToken'},
+            );
+          });
+        } else {
+          rethrow;
+        }
+      }
 
       final data = response.data as Map<String, dynamic>;
-      debugPrint('[TRANSACTION] Checkout URL: ${data['checkout_url']}');
+      debugPrint('[TRANSACTION] Response status: ${response.status}');
+      debugPrint('[TRANSACTION] Response data: $data');
 
       if (data['success'] == true) {
         emit(TransactionCheckoutReady(
@@ -63,7 +99,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
         emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
       }
     } on FunctionException catch (e) {
-      debugPrint('[TRANSACTION] Function error: ${e.details}');
+      debugPrint('[TRANSACTION] FunctionException status: ${e.status}');
+      debugPrint('[TRANSACTION] FunctionException details: ${e.details}');
+      debugPrint('[TRANSACTION] FunctionException reasonPhrase: ${e.reasonPhrase}');
       final msg = (e.details is Map && (e.details as Map)['error'] != null)
           ? (e.details as Map)['error'].toString()
           : 'Payment service error. Please try again.';
@@ -106,6 +144,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'phone': event.phoneNumber,
               'method': 'mpesa',
             },
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -171,6 +210,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'amount': event.amount,
               'note': event.note,
             },
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;
@@ -207,6 +247,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
               'account_name': event.accountName,
               'amount': event.amount,
             },
+            headers: {'Authorization': 'Bearer $token'},
           ));
 
       final data = response.data as Map<String, dynamic>;

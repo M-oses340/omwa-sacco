@@ -4,7 +4,17 @@ import { jwtUserId, jsonResponse as json } from '../_shared/auth.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: { 'x-supabase-no-session': 'true' },
+    },
+  }
 )
 
 const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
@@ -123,11 +133,12 @@ async function depositCard(userId: string, body: any) {
   })
 
   const data = await res.json()
-  console.log('[FOSA] Checkout:', res.status, JSON.stringify(data))
+  console.log('[FOSA] Checkout status:', res.status, 'body:', JSON.stringify(data))
 
   if (!res.ok || !data.url) {
     await supabase.from('transactions').update({ status: 'failed' }).eq('id', tx.id)
-    return json({ error: data?.errors?.[0]?.detail ?? data?.detail ?? data?.message ?? 'Checkout failed' }, 500)
+    const errMsg = data?.errors?.[0]?.detail ?? data?.detail ?? data?.message ?? data?.error ?? `IntaSend ${res.status}`
+    return json({ error: errMsg }, 500)
   }
 
   return json({ success: true, checkout_url: data.url, transaction_id: tx.id })

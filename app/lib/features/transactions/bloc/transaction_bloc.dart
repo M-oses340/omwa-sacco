@@ -18,121 +18,66 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
-  /// Returns a valid access token, refreshing if expiring within 5 minutes.
   Future<String?> _freshToken() async {
     final session = _supabase.auth.currentSession;
     if (session == null) return null;
-
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final expiresAt = session.expiresAt ?? 0;
-
     if (expiresAt - now < 300) {
-      debugPrint('[AUTH] Token expires in ${expiresAt - now}s, refreshing...');
       try {
-        final refreshed = await _supabase.auth.refreshSession();
-        if (refreshed.session != null) {
-          debugPrint('[AUTH] Refresh OK');
-          return refreshed.session!.accessToken;
-        }
-      } catch (e) {
-        debugPrint('[AUTH] Refresh failed: $e');
-        if (expiresAt < now) return null;
-      }
+        final r = await _supabase.auth.refreshSession();
+        if (r.session != null) return r.session!.accessToken;
+      } catch (_) {}
     }
     return session.accessToken;
   }
 
+  Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
+    final token = await _freshToken();
+    return await _supabase.functions.invoke(
+      fn,
+      body: body,
+      headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+    );
+  }
+
+  // ── M-Pesa STK deposit ──────────────────────────────────────────────────────
   Future<void> _onDepositInitiated(
       DepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) {
-        emit(TransactionError('Session expired. Please log in again.'));
-        return;
-      }
-
-      debugPrint('[TRANSACTION] Initiating checkout for KES ${event.amount}');
-      debugPrint('[TRANSACTION] Token: $token');
-
-      FunctionResponse response;
-      try {
-        response = await ConnectivityService.instance.guard(() async {
-          return await _supabase.functions.invoke(
-            'initiate-deposit',
-            body: {'amount': event.amount},
-            headers: {'Authorization': 'Bearer $token'},
-          );
-        });
-      } on FunctionException catch (e) {
-        if (e.status == 500 || e.status == 401) {
-          debugPrint('[TRANSACTION] ${e.status} on first attempt, retrying...');
-          await Future.delayed(const Duration(milliseconds: 500));
-          final retryToken = await _freshToken();
-          if (retryToken == null) {
-            emit(TransactionError('Session expired. Please log in again.'));
-            return;
-          }
-          response = await ConnectivityService.instance.guard(() async {
-            return await _supabase.functions.invoke(
-              'initiate-deposit',
-              body: {'amount': event.amount},
-              headers: {'Authorization': 'Bearer $retryToken'},
-            );
-          });
-        } else {
-          rethrow;
-        }
-      }
+      debugPrint('[TRANSACTION] M-Pesa deposit KES ${event.amount}');
+      final response = await ConnectivityService.instance.guard(() =>
+          _invoke('fosa', {'action': 'deposit_mpesa', 'amount': event.amount}));
 
       final data = response.data as Map<String, dynamic>;
-      debugPrint('[TRANSACTION] Response status: ${response.status}');
-      debugPrint('[TRANSACTION] Response data: $data');
+      debugPrint('[TRANSACTION] Response: $data');
 
       if (data['success'] == true) {
-        // STK push sent — no checkout URL
-        emit(TransactionSuccess(
-          'M-Pesa prompt sent. Enter your PIN to complete the KES ${event.amount.toStringAsFixed(2)} deposit.',
-        ));
+        emit(TransactionSuccess(data['message'] ?? 'M-Pesa prompt sent.'));
       } else {
-        emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
+        emit(TransactionError(data['error'] ?? 'Deposit failed'));
       }
     } on FunctionException catch (e) {
-      debugPrint('[TRANSACTION] FunctionException status: ${e.status}');
-      debugPrint('[TRANSACTION] FunctionException details: ${e.details}');
-      debugPrint('[TRANSACTION] FunctionException reasonPhrase: ${e.reasonPhrase}');
-      final msg = (e.details is Map && (e.details as Map)['error'] != null)
-          ? (e.details as Map)['error'].toString()
-          : 'Payment service error. Please try again.';
+      debugPrint('[TRANSACTION] FunctionException: ${e.status} ${e.details}');
+      final msg = (e.details is Map) ? (e.details as Map)['error']?.toString() ?? 'Service error' : 'Service error';
       emit(TransactionError(msg));
     } catch (e) {
-      debugPrint('[TRANSACTION] Error: $e');
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
+  // ── Card / Bank checkout deposit ────────────────────────────────────────────
   Future<void> _onCardDepositInitiated(
       CardDepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) {
-        emit(TransactionError('Session expired. Please log in again.'));
-        return;
-      }
-
-      debugPrint('[TRANSACTION] Card deposit for KES ${event.amount}');
-
-      final response = await ConnectivityService.instance.guard(() async {
-        return await _supabase.functions.invoke(
-          'initiate-withdrawal',
-          body: {'action': 'checkout', 'amount': event.amount},
-          headers: {'Authorization': 'Bearer $token'},
-        );
-      });
+      debugPrint('[TRANSACTION] Card deposit KES ${event.amount}');
+      final response = await ConnectivityService.instance.guard(() =>
+          _invoke('fosa', {'action': 'deposit_card', 'amount': event.amount}));
 
       final data = response.data as Map<String, dynamic>;
-      debugPrint('[TRANSACTION] Card deposit response: $data');
+      debugPrint('[TRANSACTION] Card response: $data');
 
       if (data['success'] == true) {
         emit(TransactionCheckoutReady(
@@ -141,91 +86,29 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
           amount: event.amount,
         ));
       } else {
-        emit(TransactionError(data['error'] ?? 'Failed to initiate deposit'));
+        emit(TransactionError(data['error'] ?? 'Checkout failed'));
       }
     } on FunctionException catch (e) {
-      debugPrint('[TRANSACTION] Card deposit error: ${e.status} ${e.details}');
-      final msg = (e.details is Map && (e.details as Map)['error'] != null)
-          ? (e.details as Map)['error'].toString()
-          : 'Payment service error. Please try again.';
+      debugPrint('[TRANSACTION] Card FunctionException: ${e.status} ${e.details}');
+      final msg = (e.details is Map) ? (e.details as Map)['error']?.toString() ?? 'Service error' : 'Service error';
       emit(TransactionError(msg));
     } catch (e) {
       emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
-  Future<void> _onWithdrawInitiated(
-      WithdrawInitiated event, Emitter<TransactionState> emit) async {
-    emit(TransactionLoading());
-    try {
-      final token = await _freshToken();
-      debugPrint('[WITHDRAW] amount=${event.amount} phone=${event.phoneNumber}');
-      if (token == null) {
-        emit(TransactionError('Session expired. Please log in again.'));
-        return;
-      }
-
-      final fosa = await ConnectivityService.instance.guard(() => _supabase
-          .from('fosa_accounts')
-          .select('id, balance, account_number')
-          .eq('member_id', event.memberId)
-          .single());
-
-      final balance = double.tryParse(fosa['balance'].toString()) ?? 0;
-      if (event.amount > balance) {
-        emit(TransactionError(
-            'Insufficient balance. Available: KES ${balance.toStringAsFixed(2)}'));
-        return;
-      }
-
-      final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'initiate-withdrawal',
-            body: {
-              'amount': event.amount,
-              'phone': event.phoneNumber,
-              'method': 'mpesa',
-            },
-            headers: {'Authorization': 'Bearer $token'},
-          ));
-
-      final data = response.data as Map<String, dynamic>;
-      debugPrint('[WITHDRAW] Edge function response: $data');
-      if (data['success'] == true) {
-        emit(TransactionSuccess(
-            'Withdrawal of KES ${event.amount.toStringAsFixed(2)} to ${event.phoneNumber} is being processed.'));
-      } else {
-        emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
-      }
-    } on FunctionException catch (e) {
-      debugPrint('[WITHDRAW] FunctionException: ${e.details}');
-      emit(TransactionError('Service error: ${e.details}'));
-    } catch (e) {
-      debugPrint('[WITHDRAW] Error: $e');
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
-    }
-  }
-
+  // ── Checkout completed (WebView result) ─────────────────────────────────────
   Future<void> _onCheckoutCompleted(
       CheckoutCompleted event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
       final tx = await _supabase
-          .from('transactions')
-          .select('status, amount')
-          .eq('id', event.transactionId)
-          .single();
-
+          .from('transactions').select('status, amount').eq('id', event.transactionId).single();
       final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-
       if (event.success) {
-        emit(TransactionSuccess(
-            'Deposit of KES ${amount.toStringAsFixed(2)} is being processed'));
+        emit(TransactionSuccess('Deposit of KES ${amount.toStringAsFixed(2)} is being processed'));
       } else {
-        await _supabase
-            .from('transactions')
-            .update({'status': 'failed'})
-            .eq('id', event.transactionId);
+        await _supabase.from('transactions').update({'status': 'failed'}).eq('id', event.transactionId);
         emit(TransactionError('Payment was cancelled'));
       }
     } catch (e) {
@@ -233,32 +116,51 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
-  Future<void> _onInternalTransfer(
-      InternalTransferInitiated event, Emitter<TransactionState> emit) async {
+  // ── Withdrawal ──────────────────────────────────────────────────────────────
+  Future<void> _onWithdrawInitiated(
+      WithdrawInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) {
-        emit(TransactionError('Session expired. Please log in again.'));
+      debugPrint('[WITHDRAW] KES ${event.amount}');
+      final fosa = await ConnectivityService.instance.guard(() => _supabase
+          .from('fosa_accounts').select('balance').eq('member_id', event.memberId).single());
+      final balance = double.tryParse(fosa['balance'].toString()) ?? 0;
+      if (event.amount > balance) {
+        emit(TransactionError('Insufficient balance. Available: KES ${balance.toStringAsFixed(2)}'));
         return;
       }
 
       final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'initiate-transfer',
-            body: {
-              'type': 'internal',
-              'to_member_number': event.toMemberNumber,
-              'amount': event.amount,
-              'note': event.note,
-            },
-            headers: {'Authorization': 'Bearer $token'},
-          ));
+          _invoke('fosa', {'action': 'withdraw', 'amount': event.amount}));
 
       final data = response.data as Map<String, dynamic>;
       if (data['success'] == true) {
-        emit(TransactionSuccess(
-            'KES ${event.amount.toStringAsFixed(2)} transferred to ${event.toMemberNumber}.'));
+        emit(TransactionSuccess('Withdrawal of KES ${event.amount.toStringAsFixed(2)} is being processed.'));
+      } else {
+        emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
+      }
+    } on FunctionException catch (e) {
+      emit(TransactionError('Service error: ${e.details}'));
+    } catch (e) {
+      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
+
+  // ── Internal transfer ───────────────────────────────────────────────────────
+  Future<void> _onInternalTransfer(
+      InternalTransferInitiated event, Emitter<TransactionState> emit) async {
+    emit(TransactionLoading());
+    try {
+      final response = await ConnectivityService.instance.guard(() =>
+          _invoke('transfer', {
+            'type': 'internal',
+            'to_member_number': event.toMemberNumber,
+            'amount': event.amount,
+            'note': event.note,
+          }));
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        emit(TransactionSuccess(data['message'] ?? 'Transfer successful'));
       } else {
         emit(TransactionError(data['error'] ?? 'Transfer failed'));
       }
@@ -269,33 +171,22 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     }
   }
 
+  // ── External bank transfer ──────────────────────────────────────────────────
   Future<void> _onExternalTransfer(
       ExternalTransferInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) {
-        emit(TransactionError('Session expired. Please log in again.'));
-        return;
-      }
-
       final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'initiate-transfer',
-            body: {
-              'type': 'external',
-              'bank_code': event.bankCode,
-              'account_number': event.accountNumber,
-              'account_name': event.accountName,
-              'amount': event.amount,
-            },
-            headers: {'Authorization': 'Bearer $token'},
-          ));
-
+          _invoke('transfer', {
+            'type': 'external',
+            'bank_code': event.bankCode,
+            'account_number': event.accountNumber,
+            'account_name': event.accountName,
+            'amount': event.amount,
+          }));
       final data = response.data as Map<String, dynamic>;
       if (data['success'] == true) {
-        emit(TransactionSuccess(
-            'KES ${event.amount.toStringAsFixed(2)} bank transfer initiated.'));
+        emit(TransactionSuccess('KES ${event.amount.toStringAsFixed(2)} bank transfer initiated.'));
       } else {
         emit(TransactionError(data['error'] ?? 'Transfer failed'));
       }

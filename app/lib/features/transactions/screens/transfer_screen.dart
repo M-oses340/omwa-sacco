@@ -304,7 +304,7 @@ class _ExternalTransferFormState extends State<_ExternalTransferForm> {
   Future<void> _loadBanks() async {
     try {
       final supabase = Supabase.instance.client;
-      final res = await supabase.functions.invoke('get-bank-codes');
+      final res = await supabase.functions.invoke('bank-codes');
       final data = res.data as Map<String, dynamic>;
       final list = (data['banks'] as List).cast<Map<String, dynamic>>();
       setState(() {

@@ -109,7 +109,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
 
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
-            'process-loan',
+            'loans',
             body: payload,
             headers: {'Authorization': 'Bearer $token'},
           ));
@@ -167,7 +167,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       debugPrint('[LOAN] Fetching schedule for: ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
-            'process-loan',
+            'loans',
             body: {'action': 'schedule', 'loan_id': event.loanId},
             headers: {'Authorization': 'Bearer $token'},
           ));
@@ -197,7 +197,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       debugPrint('[LOAN] Repaying ${event.amount} on loan ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
           _supabase.functions.invoke(
-            'process-loan',
+            'loans',
             body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
             headers: {'Authorization': 'Bearer $token'},
           ));

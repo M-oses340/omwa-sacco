@@ -17,26 +17,25 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
-  /// Returns a valid access token, refreshing if needed.
+  /// Returns a valid access token, refreshing if expiring within 5 minutes.
   Future<String?> _freshToken() async {
     final session = _supabase.auth.currentSession;
     if (session == null) return null;
 
-    // Check if token expires within 2 minutes
-    final expiresAt = session.expiresAt;
-    if (expiresAt != null) {
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (expiresAt - now < 120) {
-        debugPrint('[AUTH] Token expires soon, refreshing...');
-        try {
-          final refreshed = await _supabase.auth.refreshSession();
-          if (refreshed.session != null) {
-            debugPrint('[AUTH] Refresh successful');
-            return refreshed.session!.accessToken;
-          }
-        } catch (e) {
-          debugPrint('[AUTH] Refresh failed: $e');
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = session.expiresAt ?? 0;
+
+    if (expiresAt - now < 300) {
+      debugPrint('[AUTH] Token expires in ${expiresAt - now}s, refreshing...');
+      try {
+        final refreshed = await _supabase.auth.refreshSession();
+        if (refreshed.session != null) {
+          debugPrint('[AUTH] Refresh OK');
+          return refreshed.session!.accessToken;
         }
+      } catch (e) {
+        debugPrint('[AUTH] Refresh failed: $e');
+        if (expiresAt < now) return null;
       }
     }
     return session.accessToken;

@@ -19,20 +19,27 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
-  /// Returns a valid access token, refreshing only if expiring within 2 minutes.
+  /// Returns a valid access token, refreshing if expiring within 5 minutes.
   Future<String?> _freshToken() async {
     final session = _supabase.auth.currentSession;
     if (session == null) return null;
-    final expiresAt = session.expiresAt;
-    if (expiresAt != null) {
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (expiresAt - now < 120) {
-        try {
-          final refreshed = await _supabase.auth.refreshSession();
-          if (refreshed.session != null) return refreshed.session!.accessToken;
-        } catch (e) {
-          debugPrint('[LOAN] Token refresh failed: $e');
+
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = session.expiresAt ?? 0;
+
+    // Refresh if expired or expiring within 5 minutes
+    if (expiresAt - now < 300) {
+      debugPrint('[AUTH] Token expires in ${expiresAt - now}s, refreshing...');
+      try {
+        final refreshed = await _supabase.auth.refreshSession();
+        if (refreshed.session != null) {
+          debugPrint('[AUTH] Refresh OK, new expiry: ${refreshed.session!.expiresAt}');
+          return refreshed.session!.accessToken;
         }
+      } catch (e) {
+        debugPrint('[AUTH] Refresh failed: $e');
+        // If refresh fails and token is truly expired, return null
+        if (expiresAt < now) return null;
       }
     }
     return session.accessToken;

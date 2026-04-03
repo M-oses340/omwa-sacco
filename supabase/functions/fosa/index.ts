@@ -1,5 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
-
 Deno.serve(async (req: Request) => {
   function r(data: unknown, status = 200): Response {
     return new Response(JSON.stringify(data), {

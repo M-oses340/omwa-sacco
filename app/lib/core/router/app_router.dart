@@ -19,7 +19,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Timer? _inactivityTimer;
-  static const _timeout = Duration(minutes: 5);
+  static const _timeout = Duration(minutes: 30);
   AuthBloc? _authBloc;
 
   @override

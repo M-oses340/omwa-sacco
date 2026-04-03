@@ -340,7 +340,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLogout(
       AuthLogoutRequested event, Emitter<AuthState> emit) async {
-    await _supabase.auth.signOut();
+    // Use local scope — clears local session without revoking server-side
+    // This prevents the session from being invalidated when the inactivity timer fires
+    await _supabase.auth.signOut(scope: SignOutScope.local);
     emit(AuthUnauthenticated());
   }
 }

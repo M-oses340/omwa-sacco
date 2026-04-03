@@ -1,4 +1,4 @@
-// Raw PostgREST helper — no Supabase JS client, no session management
+// Raw PostgREST helper — no @supabase/supabase-js, no session management
 
 function getHeaders() {
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -14,24 +14,24 @@ function getUrl() {
   return Deno.env.get('SUPABASE_URL')!
 }
 
-// deno-lint-ignore no-explicit-any
 export async function dbSelect(table: string, query: string): Promise<any[]> {
   const res = await fetch(`${getUrl()}/rest/v1/${table}?${query}`, { headers: getHeaders() })
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`DB ${table}: ${body}`)
+    const text = await res.text()
+    console.error(`[DB] select ${table} ${res.status}:`, text)
+    throw new Error(`DB error: ${text}`)
   }
   return res.json()
 }
 
-// deno-lint-ignore no-explicit-any
 export async function dbInsert(table: string, body: object): Promise<any> {
   const res = await fetch(`${getUrl()}/rest/v1/${table}`, {
     method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`DB insert ${table}: ${err}`)
+    const text = await res.text()
+    console.error(`[DB] insert ${table} ${res.status}:`, text)
+    throw new Error(`DB error: ${text}`)
   }
   const data = await res.json()
   return Array.isArray(data) ? data[0] : data
@@ -43,7 +43,8 @@ export async function dbUpdate(table: string, filter: string, body: object): Pro
     method: 'PATCH', headers, body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`DB update ${table}: ${err}`)
+    const text = await res.text()
+    console.error(`[DB] update ${table} ${res.status}:`, text)
+    throw new Error(`DB error: ${text}`)
   }
 }

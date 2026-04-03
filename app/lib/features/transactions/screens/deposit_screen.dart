@@ -27,7 +27,6 @@ class _DepositSheet extends StatefulWidget {
 class _DepositSheetState extends State<_DepositSheet> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  bool _useMpesa = false; // unused — kept for state compatibility
 
   @override
   void dispose() {
@@ -196,51 +195,6 @@ class _DepositSheetState extends State<_DepositSheet> {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _MethodCard extends StatelessWidget {
-  final IconData icon;
-  final String label, subtitle;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-  const _MethodCard({
-    required this.icon, required this.label, required this.subtitle,
-    required this.selected, required this.color, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.1) : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? color : Colors.transparent, width: 2),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: selected ? color : cs.onSurface.withValues(alpha: 0.5), size: 22),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 13,
-                    color: selected ? color : cs.onSurface)),
-                Text(subtitle, style: TextStyle(
-                    fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5))),
-              ],
-            ),
-          ],
         ),
       ),
     );

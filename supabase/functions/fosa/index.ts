@@ -1,21 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jwtUserId, jsonResponse as json } from '../_shared/auth.ts'
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-    global: {
-      headers: { 'x-supabase-no-session': 'true' },
-    },
-  }
-)
+import { dbSelect, dbInsert, dbUpdate } from '../_shared/db.ts'
 
 const INTASEND_SECRET = Deno.env.get('INTASEND_SECRET_KEY')!
 const INTASEND_PUB = Deno.env.get('INTASEND_PUBLISHABLE_KEY') ?? Deno.env.get('INTASEND_PUBLIC_KEY') ?? ''
@@ -30,33 +15,80 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json()
     switch (body.action) {
-      case 'deposit_mpesa':   return await depositMpesa(userId, body)
-      case 'deposit_card':    return await depositCard(userId, body)
-      case 'withdraw':        return await withdraw(userId, body)
-      default:                return json({ error: 'Invalid action' }, 400)
+      case 'deposit_card': return await depositCard(userId, body)
+      case 'deposit_mpesa': return await depositMpesa(userId, body)
+      case 'withdraw': return await withdraw(userId, body)
+      case 'ping': return json({ 
+        ok: true, userId, 
+        sandbox: Deno.env.get('INTASEND_SANDBOX'), 
+        hasSecret: !!Deno.env.get('INTASEND_SECRET_KEY'), 
+        hasUrl: !!Deno.env.get('SUPABASE_URL'),
+        url: Deno.env.get('SUPABASE_URL')?.substring(0, 30),
+      })
+      default: return json({ error: 'Invalid action' }, 400)
     }
   } catch (e) {
-    console.error('[FOSA]', (e as Error).message)
+    console.error('[FOSA] Exception:', (e as Error).message, (e as Error).stack?.split('\n')[1])
     return json({ error: (e as Error).message }, 500)
   }
 })
 
 async function getMemberAndFosa(userId: string) {
-  const { data: member } = await supabase
-    .from('members').select('id, full_name, email, phone_number, status')
-    .eq('user_id', userId).single()
+  const members = await dbSelect('members',
+    `user_id=eq.${userId}&select=id,full_name,email,phone_number,status&limit=1`)
+  const member = members[0]
   if (!member) return { error: 'Member not found', status: 404 }
   if (member.status !== 'active') return { error: 'Account not active', status: 403 }
 
-  const { data: fosa } = await supabase
-    .from('fosa_accounts').select('id, account_number, balance')
-    .eq('member_id', member.id).single()
+  const fosas = await dbSelect('fosa_accounts',
+    `member_id=eq.${member.id}&select=id,account_number,balance&limit=1`)
+  const fosa = fosas[0]
   if (!fosa) return { error: 'FOSA account not found', status: 404 }
 
   return { member, fosa }
 }
 
-// ── M-Pesa STK Push deposit ───────────────────────────────────────────────────
+async function depositCard(userId: string, body: any) {
+  const { amount } = body
+  if (!amount || amount < 10) return json({ error: 'Minimum deposit is KES 10' }, 400)
+
+  const result = await getMemberAndFosa(userId)
+  if ('error' in result) return json({ error: result.error }, result.status)
+  const { member, fosa } = result
+
+  const reference = `DEP-${Date.now()}`
+  const tx = await dbInsert('transactions', {
+    member_id: member.id, account_type: 'fosa', transaction_type: 'deposit',
+    amount, balance_before: fosa.balance, reference,
+    description: 'FOSA deposit via IntaSend', status: 'pending',
+  })
+  if (!tx?.id) return json({ error: 'Failed to create transaction' }, 500)
+
+  const nameParts = (member.full_name ?? '').split(' ')
+  const res = await fetch(`${INTASEND_BASE}/checkout/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${INTASEND_SECRET}` },
+    body: JSON.stringify({
+      public_key: INTASEND_PUB, amount, currency: 'KES', api_ref: reference,
+      email: member.email ?? '', first_name: nameParts[0] ?? '',
+      last_name: nameParts.slice(1).join(' ') ?? '',
+      phone_number: member.phone_number ?? '',
+      redirect_url: 'https://omwasacco.app/payment/callback',
+    }),
+  })
+
+  const data = await res.json()
+  console.log('[FOSA] Checkout:', res.status, JSON.stringify(data))
+
+  if (!res.ok || !data.url) {
+    await dbUpdate('transactions', `id=eq.${tx.id}`, { status: 'failed' })
+    const errMsg = data?.errors?.[0]?.detail ?? data?.detail ?? data?.message ?? `IntaSend error ${res.status}`
+    return json({ error: errMsg }, 500)
+  }
+
+  return json({ success: true, checkout_url: data.url, transaction_id: tx.id })
+}
+
 async function depositMpesa(userId: string, body: any) {
   const { amount } = body
   if (!amount || amount < 10) return json({ error: 'Minimum deposit is KES 10' }, 400)
@@ -65,18 +97,15 @@ async function depositMpesa(userId: string, body: any) {
   if ('error' in result) return json({ error: result.error }, result.status)
   const { member, fosa } = result
 
-  const { data: tx } = await supabase.from('transactions').insert({
+  const tx = await dbInsert('transactions', {
     member_id: member.id, account_type: 'fosa', transaction_type: 'deposit',
     amount, balance_before: fosa.balance,
     description: 'FOSA deposit via M-Pesa STK Push', status: 'pending',
-  }).select('id').single()
+  })
+  if (!tx?.id) return json({ error: 'Failed to create transaction' }, 500)
 
-  if (!tx) return json({ error: 'Failed to create transaction' }, 500)
-
-  const phone = member.phone_number.startsWith('+')
-    ? member.phone_number.slice(1)
-    : member.phone_number.startsWith('0')
-    ? `254${member.phone_number.slice(1)}`
+  const phone = member.phone_number.startsWith('+') ? member.phone_number.slice(1)
+    : member.phone_number.startsWith('0') ? `254${member.phone_number.slice(1)}`
     : member.phone_number
 
   const res = await fetch(`${INTASEND_BASE}/payment/mpesa-stk-push/`, {
@@ -93,58 +122,16 @@ async function depositMpesa(userId: string, body: any) {
   console.log('[FOSA] STK push:', res.status, JSON.stringify(data))
 
   if (!res.ok) {
-    await supabase.from('transactions').update({ status: 'failed' }).eq('id', tx.id)
+    await dbUpdate('transactions', `id=eq.${tx.id}`, { status: 'failed' })
     return json({ error: data?.detail ?? data?.message ?? 'STK push failed' }, 400)
   }
 
-  await supabase.from('transactions').update({ intasend_ref: data?.invoice?.invoice_id }).eq('id', tx.id)
+  if (data?.invoice?.invoice_id) {
+    await dbUpdate('transactions', `id=eq.${tx.id}`, { intasend_ref: data.invoice.invoice_id })
+  }
   return json({ success: true, message: 'M-Pesa prompt sent. Enter your PIN to complete.', transaction_id: tx.id })
 }
 
-// ── Card / Bank checkout deposit ──────────────────────────────────────────────
-async function depositCard(userId: string, body: any) {
-  const { amount } = body
-  if (!amount || amount < 10) return json({ error: 'Minimum deposit is KES 10' }, 400)
-
-  const result = await getMemberAndFosa(userId)
-  if ('error' in result) return json({ error: result.error }, result.status)
-  const { member, fosa } = result
-
-  const reference = `DEP-${Date.now()}`
-  const { data: tx } = await supabase.from('transactions').insert({
-    member_id: member.id, account_type: 'fosa', transaction_type: 'deposit',
-    amount, balance_before: fosa.balance, reference,
-    description: 'FOSA deposit via Card/Bank', status: 'pending',
-  }).select('id').single()
-
-  if (!tx) return json({ error: 'Failed to create transaction' }, 500)
-
-  const nameParts = (member.full_name ?? '').split(' ')
-  const res = await fetch(`${INTASEND_BASE}/checkout/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${INTASEND_SECRET}` },
-    body: JSON.stringify({
-      public_key: INTASEND_PUB, amount, currency: 'KES', api_ref: reference,
-      email: member.email ?? '', first_name: nameParts[0] ?? '',
-      last_name: nameParts.slice(1).join(' ') ?? '',
-      phone_number: member.phone_number ?? '',
-      redirect_url: 'https://omwasacco.app/payment/callback',
-    }),
-  })
-
-  const data = await res.json()
-  console.log('[FOSA] Checkout status:', res.status, 'body:', JSON.stringify(data))
-
-  if (!res.ok || !data.url) {
-    await supabase.from('transactions').update({ status: 'failed' }).eq('id', tx.id)
-    const errMsg = data?.errors?.[0]?.detail ?? data?.detail ?? data?.message ?? data?.error ?? `IntaSend ${res.status}`
-    return json({ error: errMsg }, 500)
-  }
-
-  return json({ success: true, checkout_url: data.url, transaction_id: tx.id })
-}
-
-// ── M-Pesa B2C withdrawal ─────────────────────────────────────────────────────
 async function withdraw(userId: string, body: any) {
   const { amount } = body
   if (!amount || amount < 100) return json({ error: 'Minimum withdrawal is KES 100' }, 400)
@@ -172,13 +159,12 @@ async function withdraw(userId: string, body: any) {
   const data = await res.json()
   if (!res.ok) return json({ error: data?.errors?.[0]?.detail ?? 'Withdrawal failed' }, 400)
 
-  const reference = `WDR-${Date.now()}`
   const newBalance = balance - amount
-  await supabase.from('fosa_accounts').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('id', fosa.id)
-  await supabase.from('transactions').insert({
+  await dbUpdate('fosa_accounts', `id=eq.${fosa.id}`, { balance: newBalance, updated_at: new Date().toISOString() })
+  await dbInsert('transactions', {
     member_id: member.id, account_type: 'fosa', transaction_type: 'withdrawal',
     amount, balance_before: balance, balance_after: newBalance,
-    reference, description: `M-Pesa withdrawal to ${phone}`, status: 'pending',
+    reference: `WDR-${Date.now()}`, description: `M-Pesa withdrawal to ${phone}`, status: 'pending',
   })
 
   return json({ success: true })

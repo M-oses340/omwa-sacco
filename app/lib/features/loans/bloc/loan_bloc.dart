@@ -19,6 +19,19 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     on<LoanRepaymentSubmitted>(_onRepaymentSubmitted);
   }
 
+  static const String _anonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6a3VkbWZ1dXRzenNwemZoem5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mzg2NjcsImV4cCI6MjA5MDAxNDY2N30.4ur7dJ_jeVDxg2Xta2YJsJmeI0vux8CYFsEO-hsL1Q8';
+
+  Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
+    final token = await _freshToken();
+    final payload = token != null ? {...body, 'jwt': token} : body;
+    return await _supabase.functions.invoke(
+      fn,
+      body: payload,
+      headers: {'Authorization': 'Bearer $_anonKey'},
+    );
+  }
+
   /// Returns a valid access token, refreshing if expiring within 5 minutes.
   Future<String?> _freshToken() async {
     final session = _supabase.auth.currentSession;
@@ -108,11 +121,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       debugPrint('[LOAN] Submitting: $payload');
 
       final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'loans',
-            body: payload,
-            headers: {'Authorization': 'Bearer $token'},
-          ));
+          _invoke('loans', payload));
 
       debugPrint('[LOAN] Response: ${response.data}');
       final data = response.data as Map<String, dynamic>;
@@ -166,11 +175,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       if (token == null) { emit(LoanError('Session expired.')); return; }
       debugPrint('[LOAN] Fetching schedule for: ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'loans',
-            body: {'action': 'schedule', 'loan_id': event.loanId},
-            headers: {'Authorization': 'Bearer $token'},
-          ));
+          _invoke('loans', {'action': 'schedule', 'loan_id': event.loanId}));
 
       final data = response.data as Map<String, dynamic>;
       final schedule = (data['schedule'] as List? ?? [])
@@ -196,11 +201,7 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
 
       debugPrint('[LOAN] Repaying ${event.amount} on loan ${event.loanId}');
       final response = await ConnectivityService.instance.guard(() =>
-          _supabase.functions.invoke(
-            'loans',
-            body: {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount},
-            headers: {'Authorization': 'Bearer $token'},
-          ));
+          _invoke('loans', {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount}));
 
       final data = response.data as Map<String, dynamic>;
       if (data['success'] == true) {

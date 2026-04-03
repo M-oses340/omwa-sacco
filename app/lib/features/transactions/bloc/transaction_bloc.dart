@@ -32,12 +32,18 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     return session.accessToken;
   }
 
+  static const String _anonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6a3VkbWZ1dXRzenNwemZoem5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mzg2NjcsImV4cCI6MjA5MDAxNDY2N30.4ur7dJ_jeVDxg2Xta2YJsJmeI0vux8CYFsEO-hsL1Q8';
+
+  // Workaround: ES256 JWTs crash eu-central-2 edge runtime as Authorization header.
+  // Send anon key as Authorization + user JWT in body.jwt.
   Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
     final token = await _freshToken();
+    final payload = token != null ? {...body, 'jwt': token} : body;
     return await _supabase.functions.invoke(
       fn,
-      body: body,
-      headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+      body: payload,
+      headers: {'Authorization': 'Bearer $_anonKey'},
     );
   }
 

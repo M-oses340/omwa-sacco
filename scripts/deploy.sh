@@ -6,7 +6,7 @@
 # IMPORTANT: intasend functions are deployed from their source directory.
 # They NEVER overwrite files in supabase/functions/.
 
-PROJECT_REF="rzkudmfuutszspzfhzne"
+PROJECT_REF="ttjsokjjkdzfukfbusgw"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 

@@ -22,7 +22,7 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   }
 
   static const String _anonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6a3VkbWZ1dXRzenNwemZoem5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mzg2NjcsImV4cCI6MjA5MDAxNDY2N30.4ur7dJ_jeVDxg2Xta2YJsJmeI0vux8CYFsEO-hsL1Q8';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0anNva2pqa2R6ZnVrZmJ1c2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODkyMTgsImV4cCI6MjA5MDg2NTIxOH0.FjbwkcNTaXu3gp3-FQQNFNglk8Nl37uf2HXRNSbY9IY';
 
   // Raw HTTP — bypasses supabase_flutter which overrides Authorization header.
   // Sends anon key as Authorization + user JWT in body.jwt.

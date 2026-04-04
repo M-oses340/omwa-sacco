@@ -1,82 +1,137 @@
-Deno.serve(async (req) => {
-  function r(data, status = 200) {
-    return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
+// deno-lint-ignore-file no-explicit-any
+function b64d(s: string): string {
+  let b = s.replace(/-/g, '+').replace(/_/g, '/')
+  const r = b.length % 4
+  if (r === 2) b += '=='
+  else if (r === 3) b += '='
+  const t = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
+  let o = ''
+  for (let i = 0; i < b.length; i += 4) {
+    const a = t.indexOf(b[i]), c = t.indexOf(b[i+1]), e = t.indexOf(b[i+2]), f = t.indexOf(b[i+3])
+    o += String.fromCharCode((a << 2) | (c >> 4))
+    if (e !== 64) o += String.fromCharCode(((c & 15) << 4) | (e >> 2))
+    if (f !== 64) o += String.fromCharCode(((e & 3) << 6) | f)
   }
-  function uid() {
-    try {
-      const h = req.headers.get('Authorization')
-      if (!h?.startsWith('Bearer ')) return null
-      const p = h.split('.')
-      if (p.length !== 3) return null
-      const b = p[1].replace(/-/g,'+').replace(/_/g,'/')
-      const pad = b.length%4===0?'':'='.repeat(4-b.length%4)
-      const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b+pad),c=>c.charCodeAt(0))))
-      if (d.role!=='authenticated') return null
-      if (d.exp && d.exp<Math.floor(Date.now()/1000)) return null
-      return d.sub??null
-    } catch { return null }
-  }
-  const u = uid()
-  if (!u) return r({error:'Unauthorized'},401)
-  const SU = Deno.env.get('SUPABASE_URL')??''
-  const SK = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')??''
-  const IS = Deno.env.get('INTASEND_SECRET_KEY')??''
-  const IP = Deno.env.get('INTASEND_PUBLISHABLE_KEY')??''
-  const IB = Deno.env.get('INTASEND_SANDBOX')==='true'?'https://sandbox.intasend.com/api/v1':'https://payment.intasend.com/api/v1'
-  async function db(m,p,b) {
-    const res=await fetch(`${SU}/rest/v1/${p}`,{method:m,headers:{'apikey':SK,'Authorization':`Bearer ${SK}`,'Content-Type':'application/json','Prefer':'return=representation'},body:b?JSON.stringify(b):undefined})
-    const t=await res.text()
-    if(!res.ok) throw new Error(t)
-    return t?JSON.parse(t):null
-  }
-  async function is(p,b) {
-    const res=await fetch(`${IB}${p}`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${IS}`},body:JSON.stringify(b)})
-    const d=await res.json()
-    return {ok:res.ok,status:res.status,data:d}
-  }
-  async function mf() {
-    const ms=await db('GET',`members?user_id=eq.${u}&select=id,full_name,email,phone_number,status&limit=1`)
-    const m=ms?.[0]; if(!m) throw new Error('Member not found')
-    if(m.status!=='active') throw new Error('Account not active')
-    const fs=await db('GET',`fosa_accounts?member_id=eq.${m.id}&select=id,account_number,balance&limit=1`)
-    const f=fs?.[0]; if(!f) throw new Error('FOSA account not found')
-    return {m,f}
-  }
+  return o
+}
+
+function getUid(jwt: string): string | null {
   try {
-    const body=await req.json()
-    console.log('[FOSA]',body.action,u)
-    if(body.action==='deposit_card') {
-      const {amount}=body
-      if(!amount||amount<10) return r({error:'Minimum deposit is KES 10'},400)
-      const {m,f}=await mf()
-      const ref=`DEP-${Date.now()}`
-      const ta=await db('POST','transactions',{member_id:m.id,account_type:'fosa',transaction_type:'deposit',amount,balance_before:f.balance,reference:ref,description:'FOSA deposit via IntaSend',status:'pending'})
-      const tx=Array.isArray(ta)?ta[0]:ta
-      if(!tx?.id) return r({error:'Failed to create transaction'},500)
-      const np=(m.full_name??'').split(' ')
-      const {ok,status,data}=await is('/checkout/',{public_key:IP,amount,currency:'KES',api_ref:ref,email:m.email??'',first_name:np[0]??'',last_name:np.slice(1).join(' ')??'',phone_number:m.phone_number??'',redirect_url:'https://omwasacco.app/payment/callback'})
-      console.log('[FOSA] checkout:',status,JSON.stringify(data))
-      if(!ok||!data.url) { await db('PATCH',`transactions?id=eq.${tx.id}`,{status:'failed'}); return r({error:data?.errors?.[0]?.detail??data?.detail??data?.message??`IntaSend ${status}`},500) }
-      return r({success:true,checkout_url:data.url,transaction_id:tx.id})
+    const p = jwt.split('.')
+    if (p.length !== 3) return null
+    const d = JSON.parse(b64d(p[1]))
+    if (d.role !== 'authenticated') return null
+    if (d.exp && d.exp < Math.floor(Date.now() / 1000)) return null
+    return d.sub ?? null
+  } catch { return null }
+}
+
+Deno.serve(async (req: Request) => {
+  const R = (d: any, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
+
+  let body: any
+  try { body = JSON.parse(await req.text()) } catch { return R({ error: 'bad json' }, 400) }
+
+  const u = getUid(body?.jwt ?? '')
+  console.log('[F] action:', body?.action, 'uid:', u, 'jwt_len:', body?.jwt?.length ?? 0)
+  if (!u) return R({ error: 'Unauthorized' }, 401)
+
+  try {
+    const B = Deno.env.get('SUPABASE_URL')!
+    const K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+
+    const g = async (t: string, q: string) => {
+      const r = await fetch(`${B}/rest/v1/${t}?${q}`, { headers: H })
+      if (!r.ok) throw new Error(await r.text())
+      return r.json()
     }
-    if(body.action==='withdraw') {
-      const {amount}=body
-      if(!amount||amount<100) return r({error:'Minimum withdrawal is KES 100'},400)
-      const {m,f}=await mf()
-      const bal=parseFloat(f.balance)
-      if(amount>bal) return r({error:`Insufficient balance. Available: KES ${bal.toFixed(2)}`},400)
-      const ph=m.phone_number
-      const norm=ph.startsWith('+')?ph.slice(1):ph.startsWith('0')?`254${ph.slice(1)}`:ph
-      const {ok,data}=await is('/send-money/initiate/',{currency:'KES',provider:'MPESA-B2C',requires_approval:'NO',transactions:[{name:m.full_name,account:norm,amount:amount.toString(),narrative:'FOSA withdrawal - Omwa Sacco'}]})
-      if(!ok) return r({error:data?.errors?.[0]?.detail??'Withdrawal failed'},400)
-      const nb=bal-amount
-      await db('PATCH',`fosa_accounts?id=eq.${f.id}`,{balance:nb,updated_at:new Date().toISOString()})
-      await db('POST','transactions',{member_id:m.id,account_type:'fosa',transaction_type:'withdrawal',amount,balance_before:bal,balance_after:nb,reference:`WDR-${Date.now()}`,description:`M-Pesa withdrawal to ${ph}`,status:'pending'})
-      return r({success:true})
+    const p = async (t: string, b: any) => {
+      const r = await fetch(`${B}/rest/v1/${t}`, { method: 'POST', headers: H, body: JSON.stringify(b) })
+      if (!r.ok) throw new Error(await r.text())
+      const d = await r.json(); return Array.isArray(d) ? d[0] : d
     }
-    return r({error:'Invalid action'},400)
-  } catch(e) {
-    console.error('[FOSA] error:',e.message)
-    return r({error:e.message},500)
+    const x = async (t: string, q: string, b: any) => {
+      const r = await fetch(`${B}/rest/v1/${t}?${q}`, { method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' }, body: JSON.stringify(b) })
+      if (!r.ok) throw new Error(await r.text())
+    }
+
+    if (body.action === 'ping') return R({ ok: true, uid: u })
+
+    const ms = await g('members', `user_id=eq.${u}&select=id,full_name,email,phone_number,status&limit=1`)
+    const m = ms[0]; if (!m) return R({ error: 'Member not found' }, 404)
+    if (m.status !== 'active') return R({ error: 'Account not active' }, 403)
+
+    const fs = await g('fosa_accounts', `member_id=eq.${m.id}&select=id,account_number,balance&limit=1`)
+    const f = fs[0]; if (!f) return R({ error: 'FOSA not found' }, 404)
+
+    const IS = Deno.env.get('INTASEND_SECRET_KEY')!
+    const IP = Deno.env.get('INTASEND_PUBLISHABLE_KEY') ?? Deno.env.get('INTASEND_PUBLIC_KEY') ?? ''
+    const IB = Deno.env.get('INTASEND_SANDBOX') === 'true'
+      ? 'https://sandbox.intasend.com/api/v1'
+      : 'https://payment.intasend.com/api/v1'
+
+    if (body.action === 'deposit_card') {
+      const { amount } = body
+      if (!amount || amount < 10) return R({ error: 'Min KES 10' })
+      const ref = `DEP-${Date.now()}`
+      const tx = await p('transactions', {
+        member_id: m.id, account_type: 'fosa', transaction_type: 'deposit',
+        amount, balance_before: f.balance, reference: ref,
+        description: 'FOSA deposit via IntaSend', status: 'pending',
+      })
+      if (!tx?.id) return R({ error: 'TX failed' }, 500)
+      const np = (m.full_name ?? '').split(' ')
+      const cr = await fetch(`${IB}/checkout/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IS}` },
+        body: JSON.stringify({
+          public_key: IP, amount, currency: 'KES', api_ref: ref,
+          email: m.email ?? '', first_name: np[0] ?? '',
+          last_name: np.slice(1).join(' ') ?? '',
+          phone_number: m.phone_number ?? '',
+          redirect_url: 'https://omwasacco.app/payment/callback',
+        }),
+      })
+      const cd = await cr.json()
+      console.log('[F] checkout', cr.status, JSON.stringify(cd))
+      if (!cr.ok || !cd.url) {
+        await x('transactions', `id=eq.${tx.id}`, { status: 'failed' })
+        return R({ error: cd?.errors?.[0]?.detail ?? cd?.detail ?? cd?.message ?? `IS ${cr.status}` }, 500)
+      }
+      return R({ success: true, checkout_url: cd.url, transaction_id: tx.id })
+    }
+
+    if (body.action === 'withdraw') {
+      const { amount } = body
+      if (!amount || amount < 100) return R({ error: 'Min KES 100' })
+      const bal = parseFloat(f.balance)
+      if (amount > bal) return R({ error: `Insufficient. Available: KES ${bal.toFixed(2)}` })
+      const ph = m.phone_number
+      const nm = ph.startsWith('+') ? ph.slice(1) : ph.startsWith('0') ? `254${ph.slice(1)}` : ph
+      const wr = await fetch(`${IB}/send-money/initiate/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IS}` },
+        body: JSON.stringify({
+          currency: 'KES', provider: 'MPESA-B2C', requires_approval: 'NO',
+          transactions: [{ name: m.full_name, account: nm, amount: amount.toString(), narrative: 'FOSA withdrawal' }],
+        }),
+      })
+      const wd = await wr.json()
+      if (!wr.ok) return R({ error: wd?.errors?.[0]?.detail ?? 'Withdrawal failed' })
+      const nb = bal - amount
+      await x('fosa_accounts', `id=eq.${f.id}`, { balance: nb, updated_at: new Date().toISOString() })
+      await p('transactions', {
+        member_id: m.id, account_type: 'fosa', transaction_type: 'withdrawal',
+        amount, balance_before: bal, balance_after: nb,
+        reference: `WDR-${Date.now()}`, description: `Withdrawal to ${ph}`, status: 'pending',
+      })
+      return R({ success: true })
+    }
+
+    return R({ error: 'Invalid action' })
+  } catch (e) {
+    console.error('[F]', (e as Error).message)
+    return R({ error: (e as Error).message }, 500)
   }
 })

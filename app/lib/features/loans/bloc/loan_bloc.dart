@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/connectivity_service.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../models/loan_model.dart';
 import '../models/amortization_entry.dart';
 
@@ -22,15 +25,21 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
   static const String _anonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6a3VkbWZ1dXRzenNwemZoem5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mzg2NjcsImV4cCI6MjA5MDAxNDY2N30.4ur7dJ_jeVDxg2Xta2YJsJmeI0vux8CYFsEO-hsL1Q8';
 
-  Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
-    final session = _supabase.auth.currentSession;
-    final token = session?.accessToken;
+  Future<Map<String, dynamic>> _invoke(String fn, Map<String, dynamic> body) async {
+    final token = _supabase.auth.currentSession?.accessToken;
     final payload = token != null ? {...body, 'jwt': token} : body;
-    return await _supabase.functions.invoke(
-      fn,
-      body: payload,
-      headers: {'Authorization': 'Bearer $_anonKey'},
+    final url = Uri.parse('${SupabaseConstants.url}/functions/v1/$fn');
+    final res = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_anonKey',
+        'apikey': _anonKey,
+      },
+      body: jsonEncode(payload),
     );
+    debugPrint('[LOAN INVOKE] $fn → ${res.statusCode}');
+    return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
   /// Returns a valid access token, refreshing if expiring within 5 minutes.
@@ -106,12 +115,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanApplicationSubmitted event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) {
-        emit(LoanError('Session expired. Please log in again.'));
-        return;
-      }
-
       final payload = {
         'action': 'apply',
         'loan_type': event.loanType,
@@ -120,27 +123,18 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
         'purpose': event.purpose,
       };
       debugPrint('[LOAN] Submitting: $payload');
-
-      final response = await ConnectivityService.instance.guard(() =>
+      final data = await ConnectivityService.instance.guard(() =>
           _invoke('loans', payload));
-
-      debugPrint('[LOAN] Response: ${response.data}');
-      final data = response.data as Map<String, dynamic>;
-
+      debugPrint('[LOAN] Response: $data');
       if (data['success'] == true) {
         final loan = LoanModel.fromMap(data['loan'] as Map<String, dynamic>);
         final schedule = (data['schedule'] as List? ?? [])
             .map((e) => AmortizationEntry.fromMap(e as Map<String, dynamic>))
             .toList();
-        debugPrint('[LOAN] Success — ${loan.loanNumber}, ${schedule.length} schedule entries');
         emit(LoanApplicationSuccess(loan, schedule: schedule));
       } else {
-        debugPrint('[LOAN] Rejected: ${data['error']}');
         emit(LoanError(data['error'] ?? 'Failed to submit application'));
       }
-    } on FunctionException catch (e) {
-      debugPrint('[LOAN] FunctionException: ${e.status} ${e.details}');
-      emit(LoanError('Service error. Please try again.'));
     } catch (e) {
       debugPrint('[LOAN] Error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
@@ -172,23 +166,13 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanScheduleRequested event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) { emit(LoanError('Session expired.')); return; }
-      debugPrint('[LOAN] Fetching schedule for: ${event.loanId}');
-      final response = await ConnectivityService.instance.guard(() =>
+      final data = await ConnectivityService.instance.guard(() =>
           _invoke('loans', {'action': 'schedule', 'loan_id': event.loanId}));
-
-      final data = response.data as Map<String, dynamic>;
       final schedule = (data['schedule'] as List? ?? [])
           .map((e) => AmortizationEntry.fromMap(e as Map<String, dynamic>))
           .toList();
-      debugPrint('[LOAN] Schedule loaded: ${schedule.length} entries');
       emit(LoanScheduleLoaded(schedule));
-    } on FunctionException catch (e) {
-      debugPrint('[LOAN] Schedule FunctionException: ${e.details}');
-      emit(LoanError('Could not load schedule.'));
     } catch (e) {
-      debugPrint('[LOAN] Schedule error: $e');
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }
@@ -197,16 +181,9 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       LoanRepaymentSubmitted event, Emitter<LoanState> emit) async {
     emit(LoanLoading());
     try {
-      final token = await _freshToken();
-      if (token == null) { emit(LoanError('Session expired.')); return; }
-
-      debugPrint('[LOAN] Repaying ${event.amount} on loan ${event.loanId}');
-      final response = await ConnectivityService.instance.guard(() =>
+      final data = await ConnectivityService.instance.guard(() =>
           _invoke('loans', {'action': 'repay', 'loan_id': event.loanId, 'amount': event.amount}));
-
-      final data = response.data as Map<String, dynamic>;
       if (data['success'] == true) {
-        debugPrint('[LOAN] Repayment success, balance: ${data['balance_after']}');
         emit(LoanRepaymentSuccess(
           amountPaid: (data['amount_paid'] as num).toDouble(),
           balanceAfter: (data['balance_after'] as num).toDouble(),
@@ -214,11 +191,10 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       } else {
         emit(LoanError(data['error'] ?? 'Repayment failed'));
       }
-    } on FunctionException catch (e) {
-      debugPrint('[LOAN] Repayment FunctionException: ${e.details}');
-      emit(LoanError('Service error. Please try again.'));
     } catch (e) {
-      debugPrint('[LOAN] Repayment error: $e');
+      emit(LoanError(e.toString().replaceAll('Exception: ', '')));
+    }
+  }
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }

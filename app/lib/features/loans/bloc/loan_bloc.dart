@@ -195,7 +195,4 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       emit(LoanError(e.toString().replaceAll('Exception: ', '')));
     }
   }
-      emit(LoanError(e.toString().replaceAll('Exception: ', '')));
-    }
-  }
 }

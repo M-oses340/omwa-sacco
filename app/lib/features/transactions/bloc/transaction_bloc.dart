@@ -38,8 +38,9 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
   // Workaround: ES256 JWTs crash eu-central-2 edge runtime as Authorization header.
   // Use raw HTTP with anon key + user JWT in body.jwt.
   Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
-    final token = await _freshToken();
-    debugPrint('[INVOKE] $fn token: ${token != null ? token.substring(0, 20) : "NULL"}');
+    final session = _supabase.auth.currentSession;
+    final token = session?.accessToken;
+    debugPrint('[INVOKE] $fn token role: ${token != null ? (token.split('.').length > 1 ? "present" : "invalid") : "NULL"}');
     final payload = token != null ? {...body, 'jwt': token} : body;
     return await _supabase.functions.invoke(
       fn,

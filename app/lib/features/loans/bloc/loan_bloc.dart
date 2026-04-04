@@ -23,7 +23,8 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6a3VkbWZ1dXRzenNwemZoem5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mzg2NjcsImV4cCI6MjA5MDAxNDY2N30.4ur7dJ_jeVDxg2Xta2YJsJmeI0vux8CYFsEO-hsL1Q8';
 
   Future<FunctionResponse> _invoke(String fn, Map<String, dynamic> body) async {
-    final token = await _freshToken();
+    final session = _supabase.auth.currentSession;
+    final token = session?.accessToken;
     final payload = token != null ? {...body, 'jwt': token} : body;
     return await _supabase.functions.invoke(
       fn,

@@ -86,7 +86,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       await ConnectivityService.instance.guard(
-        () => _supabase.auth.signInWithOtp(email: event.email),
+        () => _supabase.auth.signInWithOtp(
+          email: event.email,
+          shouldCreateUser: true,
+        ),
       );
       emit(AuthOtpEntry(event.email));
     } on AuthException catch (e) {

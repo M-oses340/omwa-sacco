@@ -1,39 +1,40 @@
 // deno-lint-ignore-file no-explicit-any
-function b64d(s: string): string {
-  let b = s.replace(/-/g, '+').replace(/_/g, '/')
-  const r = b.length % 4
-  if (r === 2) b += '=='
-  else if (r === 3) b += '='
-  const t = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='
-  let o = ''
-  for (let i = 0; i < b.length; i += 4) {
-    const a = t.indexOf(b[i]), c = t.indexOf(b[i+1]), e = t.indexOf(b[i+2]), f = t.indexOf(b[i+3])
-    o += String.fromCharCode((a << 2) | (c >> 4))
-    if (e !== 64) o += String.fromCharCode(((c & 15) << 4) | (e >> 2))
-    if (f !== 64) o += String.fromCharCode(((e & 3) << 6) | f)
-  }
-  return o
-}
+import { createRemoteJWKSet, jwtVerify } from 'https://esm.sh/jose@5'
 
-function getUid(jwt: string): string | null {
+const JWKS = createRemoteJWKSet(
+  new URL(`${Deno.env.get('SUPABASE_URL')}/auth/v1/.well-known/jwks.json`)
+)
+
+async function getUid(authHeader: string | null): Promise<string | null> {
   try {
-    const p = jwt.split('.')
-    if (p.length !== 3) return null
-    const d = JSON.parse(b64d(p[1]))
-    if (d.role !== 'authenticated') return null
-    if (d.exp && d.exp < Math.floor(Date.now() / 1000)) return null
-    return d.sub ?? null
-  } catch { return null }
+    if (!authHeader?.startsWith('Bearer ')) return null
+    const token = authHeader.slice(7)
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: `${Deno.env.get('SUPABASE_URL')}/auth/v1`,
+      audience: 'authenticated',
+    })
+    return (payload.sub as string) ?? null
+  } catch (e) {
+    console.error('[F] JWT verify error:', (e as Error).message)
+    return null
+  }
 }
 
 Deno.serve(async (req: Request) => {
   const R = (d: any, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
 
+  // Try Authorization header first, then body.jwt
+  let token = req.headers.get('Authorization')
   let body: any
   try { body = JSON.parse(await req.text()) } catch { return R({ error: 'bad json' }, 400) }
 
-  const u = getUid(body?.jwt ?? '')
-  console.log('[F] action:', body?.action, 'uid:', u, 'jwt_len:', body?.jwt?.length ?? 0)
+  // If Authorization is anon key, use body.jwt instead
+  if (!token || token.includes('role":"anon')) {
+    token = body?.jwt ? `Bearer ${body.jwt}` : null
+  }
+
+  const u = await getUid(token)
+  console.log('[F] action:', body?.action, 'uid:', u)
   if (!u) return R({ error: 'Unauthorized' }, 401)
 
   try {

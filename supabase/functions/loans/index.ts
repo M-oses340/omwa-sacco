@@ -1,12 +1,69 @@
 // deno-lint-ignore-file no-explicit-any
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { jwtUserId, jsonResponse as json } from '../_shared/auth.ts'
+import { createRemoteJWKSet, jwtVerify } from 'https://esm.sh/jose@5'
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } }
-)
+async function getUid(req: Request, bodyJwt?: string): Promise<string | null> {
+  const url = Deno.env.get('SUPABASE_URL')!
+  const JWKS = createRemoteJWKSet(new URL(`${url}/auth/v1/.well-known/jwks.json`))
+  let token: string | null = null
+  const h = req.headers.get('Authorization')
+  if (h?.startsWith('Bearer ')) { const t = h.slice(7); if (t.split('.').length === 3) token = t }
+  if (!token && bodyJwt) token = bodyJwt
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, JWKS, { issuer: `${url}/auth/v1`, audience: 'authenticated' })
+    return (payload.sub as string) ?? null
+  } catch { return null }
+}
+
+function json(d: unknown, s = 200) {
+  return new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
+}
+
+// Raw PostgREST helpers
+function getDB() {
+  const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+  return {
+    from: (t: string) => ({
+      select: (q: string) => fetch(`${B}/rest/v1/${t}?${q}`, { headers: H }).then(r => r.ok ? r.json() : r.text().then(e => { throw new Error(e) })),
+      insert: (b: any) => fetch(`${B}/rest/v1/${t}`, { method: 'POST', headers: H, body: JSON.stringify(b) }).then(r => r.ok ? r.json().then((d: any) => Array.isArray(d) ? d[0] : d) : r.text().then(e => { throw new Error(e) })),
+      update: (b: any, q: string) => fetch(`${B}/rest/v1/${t}?${q}`, { method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' }, body: JSON.stringify(b) }).then(r => r.ok ? null : r.text().then(e => { throw new Error(e) })),
+    }),
+  }
+}
+
+// Supabase-compatible shim using raw REST
+const supabase = {
+  from: (table: string) => {
+    const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+    const base = `${B}/rest/v1/${table}`
+    return {
+      select: (cols = '*') => ({
+        eq: (col: string, val: any) => ({
+          single: () => fetch(`${base}?${col}=eq.${val}&select=${cols}&limit=1`, { headers: H }).then(r => r.ok ? r.json().then((d: any) => ({ data: Array.isArray(d) ? d[0] ?? null : d, error: null })) : r.text().then(e => ({ data: null, error: { message: e } }))),
+          maybeSingle: () => fetch(`${base}?${col}=eq.${val}&select=${cols}&limit=1`, { headers: H }).then(r => r.ok ? r.json().then((d: any) => ({ data: Array.isArray(d) ? d[0] ?? null : d, error: null })) : r.text().then(e => ({ data: null, error: { message: e } }))),
+          in: (col2: string, vals: any[]) => ({
+            maybeSingle: () => fetch(`${base}?${col}=eq.${val}&${col2}=in.(${vals.join(',')})&select=${cols}&limit=1`, { headers: H }).then(r => r.ok ? r.json().then((d: any) => ({ data: Array.isArray(d) ? d[0] ?? null : d, error: null })) : r.text().then(e => ({ data: null, error: { message: e } }))),
+          }),
+        }),
+        gte: (col: string, val: any) => ({
+          lte: (col2: string, val2: any) => ({
+            eq: (col3: string, val3: any) => fetch(`${base}?${col}=gte.${val}&${col2}=lte.${val2}&${col3}=eq.${val3}&select=${cols}`, { headers: H }).then(r => r.ok ? r.json().then((d: any) => ({ data: d, error: null })) : r.text().then(e => ({ data: null, error: { message: e } }))),
+          }),
+        }),
+      }),
+      insert: (body: any) => ({
+        select: (cols = '*') => ({
+          single: () => fetch(base, { method: 'POST', headers: H, body: JSON.stringify(body) }).then(r => r.ok ? r.json().then((d: any) => ({ data: Array.isArray(d) ? d[0] ?? null : d, error: null })) : r.text().then(e => ({ data: null, error: { message: e } }))),
+        }),
+      }),
+      update: (body: any) => ({
+        eq: (col: string, val: any) => fetch(`${base}?${col}=eq.${val}`, { method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' }, body: JSON.stringify(body) }).then(r => r.ok ? { error: null } : r.text().then(e => ({ error: { message: e } }))),
+      }),
+    }
+  },
+}
 
 // ── Loan product rules ────────────────────────────────────────────────────────
 interface Product {
@@ -67,16 +124,19 @@ async function nextLoanNumber() {
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
-  const userId = jwtUserId(req.headers.get('Authorization'))
+  let body: any
+  try { body = JSON.parse(await req.text()) } catch { return json({ error: 'bad json' }, 400) }
+
+  const userId = await getUid(req, body?.jwt)
   if (!userId) return json({ error: 'Unauthorized' }, 401)
 
   try {
-    const { data: member } = await supabase
-      .from('members').select('id, status, role').eq('user_id', userId).single()
+    const db = getDB()
+    const members = await db.from('members').select(`user_id=eq.${userId}&select=id,status,role&limit=1`)
+    const member = members[0]
     if (!member) return json({ error: 'Member not found' }, 404)
     if (member.status !== 'active') return json({ error: 'Account not active' }, 403)
 
-    const body = await req.json()
     const isAdmin = ['admin', 'treasurer', 'chairman'].includes(member.role)
 
     switch (body.action) {

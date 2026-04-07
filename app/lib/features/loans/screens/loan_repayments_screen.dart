@@ -470,6 +470,25 @@ class _RepaySheetState extends State<_RepaySheet> {
                   style: TextStyle(
                       color: cs.onSurface.withValues(alpha: 0.6),
                       fontSize: 13)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.info_outline, size: 13, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Repayment deducted from your FOSA balance',
+                      style: TextStyle(fontSize: 11, color: cs.onPrimaryContainer),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [

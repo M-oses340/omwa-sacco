@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,124 +22,149 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
     on<ExternalTransferInitiated>(_onExternalTransfer);
   }
 
-  static const String _anonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0anNva2pqa2R6ZnVrZmJ1c2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyODkyMTgsImV4cCI6MjA5MDg2NTIxOH0.FjbwkcNTaXu3gp3-FQQNFNglk8Nl37uf2HXRNSbY9IY';
+  /// Centralized invoker for Edge Functions.
+  /// Uses a 60s timeout to accommodate IntaSend Sandbox latency.
+  Future<Map<String, dynamic>> _invoke(String fn, Map<String, dynamic> body) async {
+    var session = _supabase.auth.currentSession;
 
-  // Raw HTTP — bypasses supabase_flutter which overrides Authorization header.
-  // Sends anon key as Authorization + user JWT in body.jwt.
-  Future<Map<String, dynamic>> _invoke(
-      String fn, Map<String, dynamic> body) async {
-    final token = _supabase.auth.currentSession?.accessToken;
-    debugPrint('[INVOKE] $fn token_len=${token?.length}');
-    final payload = token != null ? {...body, 'jwt': token} : body;
+    // Always try to get a fresh session
+    try {
+      final refreshed = await _supabase.auth.refreshSession();
+      if (refreshed.session != null) session = refreshed.session!;
+    } catch (e) {
+      debugPrint('[INVOKE] refresh failed: $e — using existing session');
+      // Re-read session in case it was updated externally
+      session = _supabase.auth.currentSession ?? session;
+    }
+
+    if (session == null) {
+      return {'success': false, 'error': 'Session expired. Please log in again.'};
+    }
+
+    final token = session.accessToken;
+
+    final payload = {
+      ...body, 
+      'jwt': token
+    };
+    
     final url = Uri.parse('${SupabaseConstants.url}/functions/v1/$fn');
-    final res = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_anonKey',
-        'apikey': _anonKey,
-      },
-      body: jsonEncode(payload),
-    );
-    debugPrint('[INVOKE] $fn → ${res.statusCode} ${res.body.substring(0, res.body.length.clamp(0, 120))}');
-    return jsonDecode(res.body) as Map<String, dynamic>;
+
+    try {
+      debugPrint('[INVOKE] calling $fn, jwt prefix: ${token.substring(0, 20)}');
+      debugPrint('[INVOKE] full body: ${jsonEncode(payload).substring(0, 100)}');
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'apikey': SupabaseConstants.anonKey,
+        },
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 60)); // Increased to handle EarlyDrop
+
+      if (res.body.isEmpty) {
+        return {'success': false, 'error': 'Empty response from server.'};
+      }
+
+      final data = jsonDecode(res.body);
+      debugPrint('[INVOKE] $fn status=${res.statusCode} body=${res.body.substring(0, res.body.length.clamp(0, 100))}');
+      
+      if (res.statusCode != 200) {
+        // Capture specific IntaSend or Deno error messages
+        final String errorMsg = data['error'] ?? data['detail'] ?? 'Error: ${res.statusCode}';
+        return {'success': false, 'error': errorMsg};
+      }
+      
+      return data as Map<String, dynamic>;
+    } on TimeoutException {
+      return {'success': false, 'error': 'Request timed out. Please check your connection.'};
+    } catch (e) {
+      debugPrint('[TRANSACTION_BLOC] Invoke Exception: $e');
+      return {'success': false, 'error': 'Connection error. Please try again.'};
+    }
   }
 
-  // ── M-Pesa STK deposit ──────────────────────────────────────────────────────
+  // ── M-Pesa STK Push ────────────────────────────────────────────────────────
   Future<void> _onDepositInitiated(
       DepositInitiated event, Emitter<TransactionState> emit) async {
+    debugPrint('[BLOC] DepositInitiated: amount=${event.amount}');
     emit(TransactionLoading());
     try {
       final data = await ConnectivityService.instance.guard(() =>
           _invoke('fosa', {'action': 'deposit_mpesa', 'amount': event.amount}));
+      debugPrint('[BLOC] deposit_mpesa response: $data');
       if (data['success'] == true) {
-        emit(TransactionSuccess(data['message'] ?? 'M-Pesa prompt sent.'));
+        emit(TransactionSuccess(data['message'] ?? 'M-Pesa STK prompt sent.'));
       } else {
-        emit(TransactionError(data['error'] ?? 'Deposit failed'));
+        emit(TransactionError(data['error'] ?? 'M-Pesa initiation failed.'));
       }
     } catch (e) {
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      debugPrint('[BLOC] DepositInitiated error: $e');
+      emit(TransactionError(_cleanError(e)));
     }
   }
 
-  // ── Card / Bank checkout deposit ────────────────────────────────────────────
+  // ── Card / Bank Checkout (IntaSend) ─────────────────────────────────────────
   Future<void> _onCardDepositInitiated(
       CardDepositInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
       final data = await ConnectivityService.instance.guard(() =>
           _invoke('fosa', {'action': 'deposit_card', 'amount': event.amount}));
+
       if (data['success'] == true) {
+        debugPrint('[CHECKOUT_URL] ${data['checkout_url']}');
         emit(TransactionCheckoutReady(
           checkoutUrl: data['checkout_url'],
           transactionId: data['transaction_id'],
           amount: event.amount,
         ));
       } else {
-        emit(TransactionError(data['error'] ?? 'Checkout failed'));
+        emit(TransactionError(data['error'] ?? 'Checkout initialization failed.'));
       }
     } catch (e) {
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      emit(TransactionError(_cleanError(e)));
     }
   }
 
-  // ── Checkout completed (WebView result) ─────────────────────────────────────
+  // ── WebView Completion Logic ────────────────────────────────────────────────
   Future<void> _onCheckoutCompleted(
       CheckoutCompleted event, Emitter<TransactionState> emit) async {
-    emit(TransactionLoading());
-    try {
-      final tx = await _supabase
-          .from('transactions')
-          .select('status, amount')
-          .eq('id', event.transactionId)
-          .single();
-      final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-      if (event.success) {
-        emit(TransactionSuccess(
-            'Deposit of KES ${amount.toStringAsFixed(2)} is being processed'));
-      } else {
+    if (event.success) {
+      emit(TransactionSuccess('Payment received! Updating your balance shortly.'));
+    } else {
+      emit(TransactionError('Payment was cancelled or failed.'));
+      // Optional: Inform the DB that the user cancelled
+      try {
         await _supabase
             .from('transactions')
-            .update({'status': 'failed'})
+            .update({'status': 'cancelled'})
             .eq('id', event.transactionId);
-        emit(TransactionError('Payment was cancelled'));
-      }
-    } catch (e) {
-      emit(TransactionError(e.toString()));
+      } catch (_) {} 
     }
   }
 
-  // ── Withdrawal ──────────────────────────────────────────────────────────────
+  // ── M-Pesa B2C Withdrawal ───────────────────────────────────────────────────
   Future<void> _onWithdrawInitiated(
       WithdrawInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
     try {
-      final fosa = await ConnectivityService.instance.guard(() => _supabase
-          .from('fosa_accounts')
-          .select('balance')
-          .eq('member_id', event.memberId)
-          .single());
-      final balance = double.tryParse(fosa['balance'].toString()) ?? 0;
-      if (event.amount > balance) {
-        emit(TransactionError(
-            'Insufficient balance. Available: KES ${balance.toStringAsFixed(2)}'));
-        return;
-      }
       final data = await ConnectivityService.instance.guard(() =>
           _invoke('fosa', {'action': 'withdraw', 'amount': event.amount}));
+      
       if (data['success'] == true) {
         emit(TransactionSuccess(
-            'Withdrawal of KES ${event.amount.toStringAsFixed(2)} is being processed.'));
+            'Withdrawal of KES ${event.amount.toStringAsFixed(2)} is processing.'));
       } else {
-        emit(TransactionError(data['error'] ?? 'Withdrawal failed'));
+        emit(TransactionError(data['error'] ?? 'Withdrawal failed.'));
       }
     } catch (e) {
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      emit(TransactionError(_cleanError(e)));
     }
   }
 
-  // ── Internal transfer ───────────────────────────────────────────────────────
+  // ── Internal Member-to-Member Transfer ──────────────────────────────────────
   Future<void> _onInternalTransfer(
       InternalTransferInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
@@ -150,17 +176,18 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             'amount': event.amount,
             'note': event.note,
           }));
+
       if (data['success'] == true) {
-        emit(TransactionSuccess(data['message'] ?? 'Transfer successful'));
+        emit(TransactionSuccess('Transfer to ${event.toMemberNumber} successful.'));
       } else {
-        emit(TransactionError(data['error'] ?? 'Transfer failed'));
+        emit(TransactionError(data['error'] ?? 'Internal transfer failed.'));
       }
     } catch (e) {
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      emit(TransactionError(_cleanError(e)));
     }
   }
 
-  // ── External bank transfer ──────────────────────────────────────────────────
+  // ── External Bank (EFT/RTGS) Transfer ───────────────────────────────────────
   Future<void> _onExternalTransfer(
       ExternalTransferInitiated event, Emitter<TransactionState> emit) async {
     emit(TransactionLoading());
@@ -173,14 +200,23 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
             'account_name': event.accountName,
             'amount': event.amount,
           }));
+
       if (data['success'] == true) {
-        emit(TransactionSuccess(
-            'KES ${event.amount.toStringAsFixed(2)} bank transfer initiated.'));
+        emit(TransactionSuccess('Bank transfer initiated successfully.'));
       } else {
-        emit(TransactionError(data['error'] ?? 'Transfer failed'));
+        emit(TransactionError(data['error'] ?? 'External transfer failed.'));
       }
     } catch (e) {
-      emit(TransactionError(e.toString().replaceAll('Exception: ', '')));
+      emit(TransactionError(_cleanError(e)));
     }
+  }
+
+  String _cleanError(dynamic e) {
+    return e.toString()
+        .replaceAll('Exception: ', '')
+        .replaceAll('HttpException: ', '')
+        .split(':')
+        .last
+        .trim();
   }
 }

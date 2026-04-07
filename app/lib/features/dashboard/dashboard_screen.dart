@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
-import '../transactions/screens/deposit_screen.dart';
+// FIX: Using the filename 'deposit_screen.dart' to match your directory
+import '../transactions/screens/deposit_screen.dart'; 
 import '../transactions/screens/withdraw_screen.dart';
 import '../transactions/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
@@ -32,6 +33,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadData();
   }
 
+  Future<void> _loadData() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final memberId = widget.member['id'];
+      
+      final results = await ConnectivityService.instance.guard(() => Future.wait([
+            supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
+            supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
+            supabase
+                .from('transactions')
+                .select()
+                .eq('member_id', memberId)
+                .order('created_at', ascending: false)
+                .limit(20),
+          ]));
+
+      if (mounted) {
+        setState(() {
+          _bosa = results[0] as Map<String, dynamic>?;
+          _fosa = results[1] as Map<String, dynamic>?;
+          _transactions = (results[2] as List).cast<Map<String, dynamic>>();
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
+    }
+  }
+
   void _showSuccessDialog(BuildContext ctx, String message) {
     showDialog(
       context: ctx,
@@ -39,33 +75,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (dialogCtx) {
         final cs = Theme.of(dialogCtx).colorScheme;
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 72, height: 72,
                   decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.15),
                       shape: BoxShape.circle),
-                  child: const Icon(Icons.check_circle,
-                      color: Colors.green, size: 48),
+                  child: const Icon(Icons.check_circle, color: Colors.green, size: 48),
                 ),
                 const SizedBox(height: 16),
-                Text('Deposit Submitted',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface)),
+                Text('Request Submitted',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
                 const SizedBox(height: 8),
                 Text(message,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.6))),
+                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6))),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -82,61 +111,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _loadData() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final memberId = widget.member['id'];
-      final results = await ConnectivityService.instance.guard(() => Future.wait([
-            supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-            supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-            supabase
-                .from('transactions')
-                .select()
-                .eq('member_id', memberId)
-                .order('created_at', ascending: false)
-                .limit(50),
-          ]));
-      setState(() {
-        _bosa = results[0] as Map<String, dynamic>?;
-        _fosa = results[1] as Map<String, dynamic>?;
-        _transactions = (results[2] as List).cast<Map<String, dynamic>>();
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
-      }
-    }
-  }
-
-  Widget _buildSkeleton() {
-    final cs = Theme.of(context).colorScheme;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
-              const SizedBox(width: 12),
-              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ...List.generate(4, (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _SkeletonBox(height: 64, cs: cs),
-          )),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -148,103 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Container(
-            decoration: BoxDecoration(
-              color: cs.primary,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(24),
-                bottomRight: Radius.circular(24),
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: cs.onPrimary.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(Icons.account_balance,
-                                  color: cs.onPrimary, size: 22),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('Omwa Sacco',
-                                style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _balanceVisible
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: cs.onPrimary),
-                              onPressed: () => setState(
-                                  () => _balanceVisible = !_balanceVisible),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.notifications_outlined,
-                                  color: cs.onPrimary),
-                              onPressed: () {},
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.logout, color: cs.onPrimary),
-                              onPressed: () => context
-                                  .read<AuthBloc>()
-                                  .add(AuthLogoutRequested()),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        _GravatarAvatar(
-                          photoUrl: widget.member['profile_photo_url'] as String?,
-                          email: widget.member['email'] as String? ??
-                              Supabase.instance.client.auth.currentUser?.email ?? '',
-                          fallback: name.isNotEmpty ? name[0].toUpperCase() : 'M',
-                          radius: 28,
-                          onPrimaryColor: cs.onPrimary,
-                        ),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Hello, $firstName 👋',
-                                style: TextStyle(
-                                    color: cs.onPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold)),
-                            Text('Member #$memberNumber',
-                                style: TextStyle(
-                                    color: cs.onPrimary.withValues(alpha: 0.6),
-                                    fontSize: 12)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Fixed: account cards + quick actions
+          _buildHeader(cs, firstName, memberNumber, name),
           if (!_loading)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -278,11 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text('Quick Actions',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -292,16 +166,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: 'Deposit',
                           color: Colors.green,
                           onTap: () async {
-                            final ctx = context;
-                            final refreshed =
-                                await showDepositSheet(ctx, widget.member);
+                            final refreshed = await showDepositSheet(context, widget.member);
                             if (refreshed == true) {
+                              await Future.delayed(const Duration(seconds: 2));
                               _loadData();
-                              if (mounted) {
-                                // ignore: use_build_context_synchronously
-                                _showSuccessDialog(ctx,
-                                    'Your deposit is being processed.');
-                              }
                             }
                           }),
                       _QuickAction(
@@ -309,16 +177,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: 'Withdraw',
                           color: Colors.orange,
                           onTap: () async {
-                            final ctx = context;
-                            final refreshed = await showWithdrawSheet(
-                                ctx, widget.member);
+                            final refreshed = await showWithdrawSheet(context, widget.member);
                             if (refreshed == true) {
+                              _showSuccessDialog(context, 'Withdrawal initiated.');
+                              await Future.delayed(const Duration(seconds: 2));
                               _loadData();
-                              if (mounted) {
-                                // ignore: use_build_context_synchronously
-                                _showSuccessDialog(ctx,
-                                    'Your withdrawal is being processed.');
-                              }
                             }
                           }),
                       _QuickAction(
@@ -326,79 +189,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: 'Transfer',
                           color: Colors.blue,
                           onTap: () async {
-                            final ctx = context;
-                            final refreshed = await showTransferSheet(
-                                ctx, widget.member);
+                            final refreshed = await showTransferSheet(context, widget.member);
                             if (refreshed == true) _loadData();
                           }),
                       _QuickAction(
                           icon: Icons.account_balance_wallet,
                           label: 'Loans',
                           color: Colors.purple,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  LoansScreen(member: widget.member),
-                            ),
-                          )),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member)))),
                     ],
                   ),
                   const SizedBox(height: 8),
                 ],
               ),
             ),
-
-          // Transactions header
           if (!_loading)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Recent Transactions',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                   TextButton(onPressed: () {}, child: const Text('See all')),
                 ],
               ),
             ),
-
-          // Scrollable transactions (or skeleton/empty)
           Expanded(
             child: _loading
                 ? _buildSkeleton()
                 : RefreshIndicator(
                     onRefresh: _loadData,
                     child: _transactions.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              const SizedBox(height: 40),
-                              Center(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.receipt_long_outlined,
-                                        size: 48,
-                                        color: cs.onSurface.withValues(alpha: 0.3)),
-                                    const SizedBox(height: 8),
-                                    Text('No transactions yet',
-                                        style: TextStyle(
-                                            color: cs.onSurface.withValues(alpha: 0.5))),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
+                        ? _buildEmptyState(cs)
                         : ListView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: _transactions.length,
-                            itemBuilder: (context, index) =>
-                                _TransactionTile(tx: _transactions[index]),
+                            itemBuilder: (context, index) => _TransactionTile(tx: _transactions[index]),
                           ),
                   ),
           ),
@@ -406,22 +233,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildHeader(ColorScheme cs, String firstName, String memberNumber, String fullName) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.primary,
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.account_balance, color: cs.onPrimary, size: 22),
+                      const SizedBox(width: 8),
+                      Text('Omwa Sacco', style: TextStyle(color: cs.onPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(_balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: cs.onPrimary),
+                        onPressed: () => setState(() => _balanceVisible = !_balanceVisible),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.logout, color: cs.onPrimary),
+                        onPressed: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  _GravatarAvatar(
+                    photoUrl: widget.member['profile_photo_url'] as String?,
+                    email: widget.member['email'] as String? ?? '',
+                    fallback: fullName.isNotEmpty ? fullName[0].toUpperCase() : 'M',
+                    radius: 28,
+                    onPrimaryColor: cs.onPrimary,
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Hello, $firstName 👋', style: TextStyle(color: cs.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text('Member #$memberNumber', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.6), fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme cs) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        const SizedBox(height: 60),
+        Center(
+          child: Column(
+            children: [
+              Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
+              const SizedBox(height: 8),
+              Text('No transactions yet', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeleton() {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+              const SizedBox(width: 12),
+              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ...List.generate(4, (_) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _SkeletonBox(height: 64, cs: cs))),
+        ],
+      ),
+    );
+  }
 }
 
+// Support Widgets 
 class _SkeletonBox extends StatelessWidget {
   final double height;
   final ColorScheme cs;
   const _SkeletonBox({required this.height, required this.cs});
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-    );
+    return Container(height: height, decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)));
   }
 }
 
@@ -431,65 +352,30 @@ class _AccountCard extends StatelessWidget {
   final String? accountNumber;
   final Color color;
   final bool balanceVisible;
-
-  const _AccountCard({
-    required this.title,
-    required this.subtitle,
-    this.balance,
-    this.shares,
-    this.accountNumber,
-    required this.color,
-    this.balanceVisible = true,
-  });
-
-  String _fmt(dynamic val) =>
-      double.tryParse(val.toString())?.toStringAsFixed(2) ?? '0.00';
-
+  const _AccountCard({required this.title, required this.subtitle, this.balance, this.shares, this.accountNumber, required this.color, this.balanceVisible = true});
   @override
   Widget build(BuildContext context) {
+    String fmt(dynamic val) => double.tryParse(val.toString())?.toStringAsFixed(2) ?? '0.00';
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
-          Text(subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11)),
           const SizedBox(height: 12),
           if (balance != null) ...[
-            const Text('Balance',
-                style: TextStyle(color: Colors.white60, fontSize: 11)),
-            Text(
-              balanceVisible ? 'KES ${_fmt(balance)}' : 'KES ••••••',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
-          ] else
-            const Text('No account',
-                style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const Text('Balance', style: TextStyle(color: Colors.white60, fontSize: 11)),
+            Text(balanceVisible ? 'KES ${fmt(balance)}' : 'KES ••••••', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
           if (shares != null) ...[
             const SizedBox(height: 4),
-            Text(
-              balanceVisible
-                  ? 'Shares: KES ${_fmt(shares)}'
-                  : 'Shares: KES ••••',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
+            Text(balanceVisible ? 'Shares: KES ${fmt(shares)}' : 'Shares: KES ••••', style: const TextStyle(color: Colors.white70, fontSize: 11)),
           ],
           if (accountNumber != null) ...[
             const SizedBox(height: 6),
-            Text(accountNumber!,
-                style: const TextStyle(color: Colors.white38, fontSize: 10)),
+            Text(accountNumber!, style: const TextStyle(color: Colors.white38, fontSize: 10)),
           ],
         ],
       ),
@@ -502,28 +388,14 @@ class _QuickAction extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-
-  const _QuickAction(
-      {required this.icon,
-      required this.label,
-      required this.color,
-      required this.onTap});
-
+  const _QuickAction({required this.icon, required this.label, required this.color, required this.onTap});
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color, size: 26),
-          ),
+          Container(width: 56, height: 56, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 26)),
           const SizedBox(height: 6),
           Text(label, style: const TextStyle(fontSize: 12)),
         ],
@@ -535,102 +407,37 @@ class _QuickAction extends StatelessWidget {
 class _TransactionTile extends StatelessWidget {
   final Map<String, dynamic> tx;
   const _TransactionTile({required this.tx});
-
-  String _friendlyLabel(String type) {
-    const labels = {
-      'deposit': 'Deposit',
-      'withdrawal': 'Withdrawal',
-      'transfer': 'Transfer',
-      'loan_disbursement': 'Loan Disbursement',
-      'loan_repayment': 'Loan Repayment',
-      'dividend': 'Dividend',
-      'share_purchase': 'Share Purchase',
-    };
-    return labels[type] ?? type.replaceAll('_', ' ').toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final type = tx['transaction_type'] ?? '';
-    final accountType = (tx['account_type'] ?? '').toString().toUpperCase();
     final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-    final isCredit =
-        ['deposit', 'loan_disbursement', 'dividend'].contains(type);
+    final status = tx['status'] ?? 'completed';
+    final isCredit = ['deposit', 'loan_disbursement', 'dividend'].contains(type);
     final date = DateTime.tryParse(tx['created_at'] ?? '');
-    final status = tx['status'] ?? '';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isCredit
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isCredit ? Icons.arrow_downward : Icons.arrow_upward,
-              color: isCredit ? Colors.green : Colors.orange,
-              size: 20,
-            ),
-          ),
+          Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, color: isCredit ? Colors.green : Colors.orange),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_friendlyLabel(type),
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600)),
-                Row(
-                  children: [
-                    Text(accountType,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: cs.primary,
-                            fontWeight: FontWeight.w500)),
-                    if (date != null) ...[
-                      Text(' · ',
-                          style: TextStyle(
-                              color: cs.onSurface.withValues(alpha: 0.4))),
-                      Text(
-                        '${date.day}/${date.month}/${date.year}',
-                        style: TextStyle(
-                            color: cs.onSurface.withValues(alpha: 0.5),
-                            fontSize: 11),
-                      ),
-                    ],
-                  ],
-                ),
+                Text(type.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                if (date != null) Text('${date.day}/${date.month}/${date.year}', style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5))),
               ],
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: isCredit ? Colors.green : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              if (status == 'pending')
-                Text('Pending',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: cs.tertiary)),
+              Text('${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}', style: TextStyle(color: isCredit ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
+              if (status != 'completed')
+                Text(status.toUpperCase(), style: TextStyle(fontSize: 9, color: status == 'pending' ? Colors.blue : Colors.red, fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -645,56 +452,26 @@ class _GravatarAvatar extends StatefulWidget {
   final String fallback;
   final double radius;
   final Color onPrimaryColor;
-
-  const _GravatarAvatar({
-    this.photoUrl,
-    required this.email,
-    required this.fallback,
-    required this.radius,
-    required this.onPrimaryColor,
-  });
-
+  const _GravatarAvatar({this.photoUrl, required this.email, required this.fallback, required this.radius, required this.onPrimaryColor});
   @override
   State<_GravatarAvatar> createState() => _GravatarAvatarState();
 }
 
 class _GravatarAvatarState extends State<_GravatarAvatar> {
   bool _imageError = false;
-
   String _gravatarUrl(String email) {
-    final hash =
-        md5.convert(utf8.encode(email.trim().toLowerCase())).toString();
-    final size = (widget.radius * 4).toInt();
-    return 'https://www.gravatar.com/avatar/$hash?s=$size&d=identicon&f=y';
+    final hash = md5.convert(utf8.encode(email.trim().toLowerCase())).toString();
+    return 'https://www.gravatar.com/avatar/$hash?s=200&d=identicon';
   }
-
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final imageUrl = !_imageError
-        ? ((widget.photoUrl != null && widget.photoUrl!.isNotEmpty)
-            ? widget.photoUrl!
-            : widget.email.isNotEmpty
-                ? _gravatarUrl(widget.email)
-                : null)
-        : null;
-
+    final imageUrl = !_imageError ? (widget.photoUrl ?? _gravatarUrl(widget.email)) : null;
     return CircleAvatar(
       radius: widget.radius,
       backgroundColor: widget.onPrimaryColor.withValues(alpha: 0.2),
       backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-      onBackgroundImageError: imageUrl != null
-          ? (_, __) => setState(() => _imageError = true)
-          : null,
-      child: imageUrl == null || _imageError
-          ? Text(
-              widget.fallback,
-              style: TextStyle(
-                  color: cs.onPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
-            )
-          : null,
+      onBackgroundImageError: imageUrl != null ? (_, __) => setState(() => _imageError = true) : null,
+      child: (imageUrl == null || _imageError) ? Text(widget.fallback, style: TextStyle(color: widget.onPrimaryColor, fontWeight: FontWeight.bold)) : null,
     );
   }
 }

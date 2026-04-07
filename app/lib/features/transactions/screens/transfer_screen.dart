@@ -310,8 +310,8 @@ class _ExternalTransferFormState extends State<_ExternalTransferForm> {
       setState(() {
         _banks = list
             .map((b) => {
-                  'code': b['bank_code'].toString(),
-                  'name': b['bank_name'].toString(),
+                  'code': b['code'].toString(),
+                  'name': b['name'].toString(),
                 })
             .toList();
         _loadingBanks = false;

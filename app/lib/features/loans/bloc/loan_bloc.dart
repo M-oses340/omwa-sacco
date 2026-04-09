@@ -42,31 +42,6 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  /// Returns a valid access token, refreshing if expiring within 5 minutes.
-  Future<String?> _freshToken() async {
-    final session = _supabase.auth.currentSession;
-    if (session == null) return null;
-
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final expiresAt = session.expiresAt ?? 0;
-
-    // Refresh if expired or expiring within 5 minutes
-    if (expiresAt - now < 300) {
-      debugPrint('[AUTH] Token expires in ${expiresAt - now}s, refreshing...');
-      try {
-        final refreshed = await _supabase.auth.refreshSession();
-        if (refreshed.session != null) {
-          debugPrint('[AUTH] Refresh OK, new expiry: ${refreshed.session!.expiresAt}');
-          return refreshed.session!.accessToken;
-        }
-      } catch (e) {
-        debugPrint('[AUTH] Refresh failed: $e');
-        // If refresh fails and token is truly expired, return null
-        if (expiresAt < now) return null;
-      }
-    }
-    return session.accessToken;
-  }
 
   Future<void> _onHistoryRequested(
       LoanHistoryRequested event, Emitter<LoanState> emit) async {

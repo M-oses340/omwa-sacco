@@ -68,48 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _showSuccessDialog(BuildContext ctx, String message) {
-    showDialog(
-      context: ctx,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        final cs = Theme.of(dialogCtx).colorScheme;
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72, height: 72,
-                  decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-                ),
-                const SizedBox(height: 16),
-                Text('Request Submitted',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
-                const SizedBox(height: 8),
-                Text(message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6))),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(dialogCtx),
-                    child: const Text('Done'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,11 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: Colors.orange,
                           onTap: () async {
                             final refreshed = await showWithdrawSheet(context, widget.member);
-                            if (refreshed == true) {
-                              _showSuccessDialog(context, 'Withdrawal initiated.');
-                              await Future.delayed(const Duration(seconds: 2));
-                              _loadData();
-                            }
+                            if (mounted && refreshed == true) _loadData();
                           }),
                       _QuickAction(
                           icon: Icons.swap_horiz,

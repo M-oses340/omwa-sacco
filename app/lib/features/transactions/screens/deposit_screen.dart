@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../bloc/transaction_bloc.dart';
 
 Future<bool?> showDepositSheet(
@@ -19,7 +18,7 @@ Future<bool?> showDepositSheet(
 
 class _DepositSheet extends StatefulWidget {
   final Map<String, dynamic> member;
-  const _DepositSheet({super.key, required this.member});
+  const _DepositSheet({required this.member});
 
   @override
   State<_DepositSheet> createState() => _DepositSheetState();
@@ -347,12 +346,6 @@ class _CheckoutWebViewState extends State<_CheckoutWebView> {
     WebViewCookieManager().clearCookies();
 
     final controller = WebViewController();
-
-    if (controller.platform is AndroidWebViewController) {
-      final p = controller.platform as AndroidWebViewController;
-      p.setMediaPlaybackRequiresUserGesture(false);
-      p.setOnPlatformPermissionRequest((r) => r.grant());
-    }
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)

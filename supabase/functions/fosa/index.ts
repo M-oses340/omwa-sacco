@@ -154,44 +154,48 @@ Deno.serve(async (req)=>{
     }
     if (body.action === 'withdraw') {
       const { amount } = body;
-      if (!amount || amount < 100) return R({
-        error: 'Min KES 100'
-      });
+      if (!amount || amount < 100) return R({ error: 'Min KES 100' });
       const bal = parseFloat(f.balance);
-      if (amount > bal) return R({
-        error: `Insufficient. Available: KES ${bal.toFixed(2)}`
-      });
+      if (amount > bal) return R({ error: `Insufficient. Available: KES ${bal.toFixed(2)}` });
+
+      // Normalise phone to 254XXXXXXXXX format
       const ph = m.phone_number;
       const nm = ph.startsWith('+') ? ph.slice(1) : ph.startsWith('0') ? `254${ph.slice(1)}` : ph;
-      const wr = await fetch(`${IB}/send-money/initiate/`, {
+
+      const ref = `WDR-${Date.now()}`;
+
+      // Step 1 — Initiate B2C transfer
+      const initiateRes = await fetch(`${IB}/send-money/initiate/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${IS}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IS}` },
         body: JSON.stringify({
           currency: 'KES',
           provider: 'MPESA-B2C',
-          requires_approval: 'NO',
-          transactions: [
-            {
-              name: m.full_name,
-              account: nm,
-              amount: amount.toString(),
-              narrative: 'FOSA withdrawal'
-            }
-          ]
+          requires_approval: 'YES',
+          transactions: [{ name: m.full_name, account: nm, amount: amount.toString(), narrative: 'FOSA withdrawal' }]
         })
       });
-      const wd = await wr.json();
-      if (!wr.ok) return R({
-        error: wd?.errors?.[0]?.detail ?? 'Withdrawal failed'
+      const initiateData = await initiateRes.json();
+      console.log('[F] B2C initiate', initiateRes.status, JSON.stringify(initiateData));
+      if (!initiateRes.ok) {
+        return R({ error: initiateData?.errors?.[0]?.detail ?? initiateData?.detail ?? 'Withdrawal initiation failed' });
+      }
+
+      // Step 2 — Approve to release funds
+      const approveRes = await fetch(`${IB}/send-money/${initiateData.id}/approve/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IS}` },
+        body: JSON.stringify({ approved: true, wallet_id: initiateData.wallet_id })
       });
+      const approveData = await approveRes.json();
+      console.log('[F] B2C approve', approveRes.status, JSON.stringify(approveData));
+      if (!approveRes.ok) {
+        return R({ error: approveData?.errors?.[0]?.detail ?? approveData?.detail ?? 'Withdrawal approval failed' });
+      }
+
+      // Deduct balance and record transaction only after successful approval
       const nb = bal - amount;
-      await x('fosa_accounts', `id=eq.${f.id}`, {
-        balance: nb,
-        updated_at: new Date().toISOString()
-      });
+      await x('fosa_accounts', `id=eq.${f.id}`, { balance: nb, updated_at: new Date().toISOString() });
       await p('transactions', {
         member_id: m.id,
         account_type: 'fosa',
@@ -199,13 +203,13 @@ Deno.serve(async (req)=>{
         amount,
         balance_before: bal,
         balance_after: nb,
-        reference: `WDR-${Date.now()}`,
-        description: `Withdrawal to ${ph}`,
-        status: 'pending'
+        reference: ref,
+        intasend_ref: initiateData.id,
+        description: `Withdrawal to ${ph} via M-Pesa B2C`,
+        status: 'pending'  // webhook will update to completed/failed
       });
-      return R({
-        success: true
-      });
+
+      return R({ success: true, message: `KES ${amount} is being sent to ${ph}. You will receive an M-Pesa confirmation shortly.` });
     }
     return R({
       error: 'Invalid action'

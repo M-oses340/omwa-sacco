@@ -52,7 +52,6 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
 
     try {
       debugPrint('[INVOKE] calling $fn, jwt prefix: ${token.substring(0, 20)}');
-      debugPrint('[INVOKE] full body: ${jsonEncode(payload).substring(0, 100)}');
       final res = await http.post(
         url,
         headers: {
@@ -155,11 +154,12 @@ class TransactionBloc extends Bloc<TransactionEvent, TransactionState> {
       
       if (data['success'] == true) {
         emit(TransactionSuccess(
-            'Withdrawal of KES ${event.amount.toStringAsFixed(2)} is processing.'));
+            data['message'] ?? 'Withdrawal of KES ${event.amount.toStringAsFixed(2)} is processing.'));
       } else {
         emit(TransactionError(data['error'] ?? 'Withdrawal failed.'));
       }
     } catch (e) {
+      debugPrint('[BLOC] WithdrawInitiated error: $e');
       emit(TransactionError(_cleanError(e)));
     }
   }

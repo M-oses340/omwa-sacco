@@ -85,138 +85,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(cs, firstName, memberNumber, name),
-          if (!_loading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _AccountCard(
-                          title: 'BOSA',
-                          subtitle: 'Savings & Shares',
-                          balance: _bosa?['savings_balance'],
-                          shares: _bosa?['shares_balance'],
-                          accountNumber: _bosa?['account_number'],
-                          color: AppColors.primary,
-                          balanceVisible: _balanceVisible,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _AccountCard(
-                          title: 'FOSA',
-                          subtitle: 'Current Account',
-                          balance: _fosa?['balance'],
-                          accountNumber: _fosa?['account_number'],
-                          color: AppColors.fosaGreen,
-                          balanceVisible: _balanceVisible,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _QuickAction(
-                          icon: Icons.arrow_downward,
-                          label: 'Deposit',
-                          color: Colors.green,
-                          onTap: () async {
-                            final refreshed = await showDepositSheet(context, widget.member);
-                            if (refreshed == true) {
-                              await Future.delayed(const Duration(seconds: 2));
-                              _loadData();
-                            }
-                          }),
-                      _QuickAction(
-                          icon: Icons.arrow_upward,
-                          label: 'Withdraw',
-                          color: Colors.orange,
-                          onTap: () async {
-                            final refreshed = await showWithdrawSheet(context, widget.member);
-                            if (mounted && refreshed == true) _loadData();
-                          }),
-                      _QuickAction(
-                          icon: Icons.swap_horiz,
-                          label: 'Transfer',
-                          color: Colors.blue,
-                          onTap: () async {
-                            final refreshed = await showTransferSheet(context, widget.member);
-                            if (refreshed == true) _loadData();
-                          }),
-                      _QuickAction(
-                          icon: Icons.account_balance_wallet,
-                          label: 'Loans',
-                          color: Colors.purple,
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member)))),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _QuickAction(
-                          icon: Icons.receipt_long,
-                          label: 'Pay Bills',
-                          color: Colors.teal,
-                          onTap: () async {
-                            final refreshed = await showPayBillsSheet(context, widget.member);
-                            if (refreshed == true) _loadData();
-                          }),
-                      _QuickAction(
-                          icon: Icons.schedule,
-                          label: 'Ratiba',
-                          color: Colors.indigo,
-                          onTap: () => showRatibaSheet(context, widget.member)),
-                      _QuickAction(
-                          icon: Icons.sim_card,
-                          label: 'Airtime',
-                          color: Colors.red,
-                          onTap: () async {
-                            final refreshed = await showBuyAirtimeSheet(context, widget.member);
-                            if (refreshed == true) _loadData();
-                          }),
-                      _QuickAction(
-                          icon: Icons.bar_chart,
-                          label: 'Reports',
-                          color: Colors.brown,
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen(member: widget.member)))),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          if (!_loading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  TextButton(onPressed: () {}, child: const Text('See all')),
-                ],
-              ),
-            ),
           Expanded(
             child: _loading
                 ? _buildSkeleton()
                 : RefreshIndicator(
                     onRefresh: _loadData,
-                    child: _transactions.isEmpty
-                        ? _buildEmptyState(cs)
-                        : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                            itemCount: _transactions.length,
-                            itemBuilder: (context, index) => _TransactionTile(tx: _transactions[index]),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _AccountCard(
+                                      title: 'BOSA',
+                                      subtitle: 'Savings & Shares',
+                                      balance: _bosa?['savings_balance'],
+                                      shares: _bosa?['shares_balance'],
+                                      accountNumber: _bosa?['account_number'],
+                                      color: AppColors.primary,
+                                      balanceVisible: _balanceVisible,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _AccountCard(
+                                      title: 'FOSA',
+                                      subtitle: 'Current Account',
+                                      balance: _fosa?['balance'],
+                                      accountNumber: _fosa?['account_number'],
+                                      color: AppColors.fosaGreen,
+                                      balanceVisible: _balanceVisible,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _QuickAction(
+                                      icon: Icons.arrow_downward,
+                                      label: 'Deposit',
+                                      color: Colors.green,
+                                      onTap: () async {
+                                        final refreshed = await showDepositSheet(context, widget.member);
+                                        if (refreshed == true) {
+                                          await Future.delayed(const Duration(seconds: 2));
+                                          _loadData();
+                                        }
+                                      }),
+                                  _QuickAction(
+                                      icon: Icons.arrow_upward,
+                                      label: 'Withdraw',
+                                      color: Colors.orange,
+                                      onTap: () async {
+                                        final refreshed = await showWithdrawSheet(context, widget.member);
+                                        if (mounted && refreshed == true) _loadData();
+                                      }),
+                                  _QuickAction(
+                                      icon: Icons.swap_horiz,
+                                      label: 'Transfer',
+                                      color: Colors.blue,
+                                      onTap: () async {
+                                        final refreshed = await showTransferSheet(context, widget.member);
+                                        if (refreshed == true) _loadData();
+                                      }),
+                                  _QuickAction(
+                                      icon: Icons.account_balance_wallet,
+                                      label: 'Loans',
+                                      color: Colors.purple,
+                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member)))),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _QuickAction(
+                                      icon: Icons.receipt_long,
+                                      label: 'Pay Bills',
+                                      color: Colors.teal,
+                                      onTap: () async {
+                                        final refreshed = await showPayBillsSheet(context, widget.member);
+                                        if (refreshed == true) _loadData();
+                                      }),
+                                  _QuickAction(
+                                      icon: Icons.schedule,
+                                      label: 'Ratiba',
+                                      color: Colors.indigo,
+                                      onTap: () => showRatibaSheet(context, widget.member)),
+                                  _QuickAction(
+                                      icon: Icons.sim_card,
+                                      label: 'Airtime',
+                                      color: Colors.red,
+                                      onTap: () async {
+                                        final refreshed = await showBuyAirtimeSheet(context, widget.member);
+                                        if (refreshed == true) _loadData();
+                                      }),
+                                  _QuickAction(
+                                      icon: Icons.bar_chart,
+                                      label: 'Reports',
+                                      color: Colors.brown,
+                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen(member: widget.member)))),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                           ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                              TextButton(onPressed: () {}, child: const Text('See all')),
+                            ],
+                          ),
+                        ),
+                        ..._transactions.map((tx) => Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: _TransactionTile(tx: tx),
+                        )),
+                        if (_transactions.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 40),
+                            child: Center(
+                              child: Column(children: [
+                                Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
+                                const SizedBox(height: 8),
+                                Text('No transactions yet', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
+                              ]),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
           ),
         ],

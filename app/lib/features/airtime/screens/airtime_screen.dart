@@ -84,7 +84,8 @@ class _AirtimeSheetState extends State<_AirtimeSheet> {
                   Text('Buy Airtime', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 ]),
               ),
-              SingleChildScrollView(
+              Flexible(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                 child: Form(
                   key: _formKey,
@@ -154,6 +155,7 @@ class _AirtimeSheetState extends State<_AirtimeSheet> {
                   ),
                 ),
               ),
+              ),  // Flexible
             ],
           ),
         ),

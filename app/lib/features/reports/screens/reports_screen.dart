@@ -97,7 +97,7 @@ class _SummaryTab extends StatelessWidget {
     for (final tx in transactions) {
       final type = tx['transaction_type'] ?? 'other';
       final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-      if (creditTypes.contains(type)) totalIn += amount; else totalOut += amount;
+      if (creditTypes.contains(type)) { totalIn += amount; } else { totalOut += amount; }
       byType[type] = (byType[type] ?? 0) + amount;
     }
     return ListView(
@@ -192,7 +192,7 @@ class _TransactionsTab extends StatelessWidget {
     for (final tx in state.filtered) {
       final type = tx['transaction_type'] ?? '';
       final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-      if (creditTypes.contains(type)) totalIn += amount; else totalOut += amount;
+      if (creditTypes.contains(type)) { totalIn += amount; } else { totalOut += amount; }
     }
     return Column(
       children: [

@@ -15,8 +15,6 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     on<ReportsDateRangeCleared>(_onDateRangeCleared);
   }
 
-  static const _creditTypes = ['deposit', 'loan_disbursement', 'dividend'];
-
   List<Map<String, dynamic>> _applyFilter(
     List<Map<String, dynamic>> all,
     String type,

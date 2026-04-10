@@ -11,6 +11,10 @@ import '../transactions/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/connectivity_service.dart';
 import '../loans/screens/loans_screen.dart';
+import '../pay_bills/screens/pay_bills_screen.dart';
+import '../airtime/screens/airtime_screen.dart';
+import '../ratiba/screens/ratiba_screen.dart';
+import '../reports/screens/reports_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -151,6 +155,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           label: 'Loans',
                           color: Colors.purple,
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member)))),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _QuickAction(
+                          icon: Icons.receipt_long,
+                          label: 'Pay Bills',
+                          color: Colors.teal,
+                          onTap: () async {
+                            final refreshed = await showPayBillsSheet(context, widget.member);
+                            if (refreshed == true) _loadData();
+                          }),
+                      _QuickAction(
+                          icon: Icons.schedule,
+                          label: 'Ratiba',
+                          color: Colors.indigo,
+                          onTap: () => showRatibaSheet(context, widget.member)),
+                      _QuickAction(
+                          icon: Icons.sim_card,
+                          label: 'Airtime',
+                          color: Colors.red,
+                          onTap: () async {
+                            final refreshed = await showBuyAirtimeSheet(context, widget.member);
+                            if (refreshed == true) _loadData();
+                          }),
+                      _QuickAction(
+                          icon: Icons.bar_chart,
+                          label: 'Reports',
+                          color: Colors.brown,
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen(member: widget.member)))),
                     ],
                   ),
                   const SizedBox(height: 8),

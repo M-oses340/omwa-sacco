@@ -185,6 +185,11 @@ class _SchedulesList extends StatelessWidget {
                       'KES ${amount.toStringAsFixed(2)} · ${s['frequency'] ?? ''}',
                       style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)),
                     ),
+                    if (s['destination_name'] != null && (s['destination_name'] as String).isNotEmpty)
+                      Text(
+                        '→ ${s['destination_name']} (${s['destination_type']?.toString().toUpperCase() ?? ''})',
+                        style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                      ),
                     if (nextRun != null && !isCancelled)
                       Text(
                         'Next: ${nextRun.day}/${nextRun.month}/${nextRun.year}',
@@ -240,17 +245,39 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _destAccountCtrl = TextEditingController();
+  final _destNameCtrl = TextEditingController();
+  final _destRefCtrl = TextEditingController();
+
   String _paymentType = 'savings';
   String _frequency = 'monthly';
+  String _destType = 'mpesa';
   DateTime _startDate = DateTime.now().add(const Duration(days: 1));
 
   static const _paymentTypes = ['savings', 'loan_repayment', 'shares'];
   static const _frequencies = ['daily', 'weekly', 'monthly'];
+  static const _destTypes = ['mpesa', 'paybill', 'till', 'pesalink'];
+
+  static const _destLabels = {
+    'mpesa':    'M-Pesa Phone Number',
+    'paybill':  'Business Number',
+    'till':     'Till Number',
+    'pesalink': 'Bank Account Number',
+  };
+  static const _destIcons = {
+    'mpesa':    Icons.phone_android,
+    'paybill':  Icons.receipt_long,
+    'till':     Icons.store,
+    'pesalink': Icons.account_balance,
+  };
 
   @override
   void dispose() {
     _amountCtrl.dispose();
     _descCtrl.dispose();
+    _destAccountCtrl.dispose();
+    _destNameCtrl.dispose();
+    _destRefCtrl.dispose();
     super.dispose();
   }
 
@@ -267,17 +294,22 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
   void _submit(BuildContext ctx) {
     if (!_formKey.currentState!.validate()) return;
     ctx.read<RatibaBloc>().add(RatibaScheduleCreated(
-      memberId: widget.member['id'],
-      paymentType: _paymentType,
-      amount: double.parse(_amountCtrl.text.trim()),
-      frequency: _frequency,
-      startDate: _startDate,
-      description: _descCtrl.text.trim(),
+      memberId:           widget.member['id'],
+      paymentType:        _paymentType,
+      amount:             double.parse(_amountCtrl.text.trim()),
+      frequency:          _frequency,
+      startDate:          _startDate,
+      description:        _descCtrl.text.trim(),
+      destinationType:    _destType,
+      destinationAccount: _destAccountCtrl.text.trim(),
+      destinationName:    _destNameCtrl.text.trim(),
+      destinationRef:     _destRefCtrl.text.trim(),
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return BlocBuilder<RatibaBloc, RatibaState>(
       builder: (ctx, state) => SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 32),
@@ -286,17 +318,17 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Payment type
               Text('Payment Type', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _paymentTypes.map((t) => ChoiceChip(
-                  label: Text(t.replaceAll('_', ' ')),
-                  selected: _paymentType == t,
-                  onSelected: (_) => setState(() => _paymentType = t),
-                )).toList(),
-              ),
+              Wrap(spacing: 8, children: _paymentTypes.map((t) => ChoiceChip(
+                label: Text(t.replaceAll('_', ' ')),
+                selected: _paymentType == t,
+                onSelected: (_) => setState(() => _paymentType = t),
+              )).toList()),
               const SizedBox(height: 16),
+
+              // Amount
               TextFormField(
                 controller: _amountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -310,17 +342,18 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // Frequency
               Text('Frequency', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _frequencies.map((f) => ChoiceChip(
-                  label: Text(f),
-                  selected: _frequency == f,
-                  onSelected: (_) => setState(() => _frequency = f),
-                )).toList(),
-              ),
+              Wrap(spacing: 8, children: _frequencies.map((f) => ChoiceChip(
+                label: Text(f),
+                selected: _frequency == f,
+                onSelected: (_) => setState(() => _frequency = f),
+              )).toList()),
               const SizedBox(height: 16),
+
+              // Start date
               InkWell(
                 onTap: _pickDate,
                 borderRadius: BorderRadius.circular(8),
@@ -329,12 +362,76 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
                   child: Text('${_startDate.day}/${_startDate.month}/${_startDate.year}'),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+
+              // Destination section
+              Row(children: [
+                Icon(Icons.send, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text('Send To', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary)),
+              ]),
+              const SizedBox(height: 10),
+
+              // Destination type
+              Wrap(spacing: 8, runSpacing: 4, children: _destTypes.map((d) => ChoiceChip(
+                avatar: Icon(_destIcons[d], size: 14),
+                label: Text(d.toUpperCase()),
+                selected: _destType == d,
+                onSelected: (_) => setState(() {
+                  _destType = d;
+                  _destAccountCtrl.clear();
+                  _destRefCtrl.clear();
+                }),
+              )).toList()),
+              const SizedBox(height: 14),
+
+              // Recipient name
+              TextFormField(
+                controller: _destNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Recipient Name',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+
+              // Account number / phone / till / business
+              TextFormField(
+                controller: _destAccountCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: _destLabels[_destType] ?? 'Account',
+                  prefixIcon: Icon(_destIcons[_destType] ?? Icons.account_circle),
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+
+              // Account reference — only for paybill and pesalink
+              if (_destType == 'paybill' || _destType == 'pesalink') ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _destRefCtrl,
+                  decoration: InputDecoration(
+                    labelText: _destType == 'paybill' ? 'Account Reference (e.g. meter no.)' : 'Bank Code',
+                    prefixIcon: const Icon(Icons.tag),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ],
+              const SizedBox(height: 12),
+
+              // Description
               TextFormField(
                 controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description (optional)', prefixIcon: Icon(Icons.notes)),
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  prefixIcon: Icon(Icons.notes),
+                ),
               ),
               const SizedBox(height: 28),
+
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(

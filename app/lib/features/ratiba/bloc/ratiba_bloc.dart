@@ -54,6 +54,10 @@ class RatibaBloc extends Bloc<RatibaEvent, RatibaState> {
                 ? event.description
                 : '${event.paymentType} - ${event.frequency}',
             'status': 'active',
+            'destination_type': event.destinationType,
+            'destination_account': event.destinationAccount,
+            'destination_name': event.destinationName,
+            'destination_ref': event.destinationRef,
           }));
       final schedules = await _fetchSchedules(event.memberId);
       emit(RatibaActionSuccess(message: 'Schedule created successfully', schedules: schedules));

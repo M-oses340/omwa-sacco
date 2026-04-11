@@ -14,6 +14,10 @@ class RatibaScheduleCreated extends RatibaEvent {
   final String frequency;
   final DateTime startDate;
   final String description;
+  final String destinationType;
+  final String destinationAccount;
+  final String destinationName;
+  final String destinationRef;
   RatibaScheduleCreated({
     required this.memberId,
     required this.paymentType,
@@ -21,6 +25,10 @@ class RatibaScheduleCreated extends RatibaEvent {
     required this.frequency,
     required this.startDate,
     required this.description,
+    required this.destinationType,
+    required this.destinationAccount,
+    required this.destinationName,
+    required this.destinationRef,
   });
 }
 

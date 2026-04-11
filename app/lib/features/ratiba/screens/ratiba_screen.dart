@@ -385,16 +385,18 @@ class _NewScheduleFormState extends State<_NewScheduleForm> {
               )).toList()),
               const SizedBox(height: 14),
 
-              // Recipient name
-              TextFormField(
-                controller: _destNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Recipient Name',
-                  prefixIcon: Icon(Icons.person_outline),
+              // Recipient name — only required for PesaLink bank transfers
+              if (_destType == 'pesalink') ...[
+                TextFormField(
+                  controller: _destNameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Account Holder Name',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
 
               // Account number / phone / till / business
               TextFormField(

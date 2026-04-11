@@ -193,7 +193,7 @@ class _SchedulesList extends StatelessWidget {
                     if (isCancelled)
                       Text('Cancelled', style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.4))),
                     if (isPaused)
-                      Text('Paused', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                      const Text('Paused', style: TextStyle(fontSize: 11, color: Colors.orange)),
                   ]),
                 ),
                 if (!isCancelled) ...[

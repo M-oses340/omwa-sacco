@@ -297,24 +297,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildEmptyState(ColorScheme cs) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        const SizedBox(height: 60),
-        Center(
-          child: Column(
-            children: [
-              Icon(Icons.receipt_long_outlined, size: 48, color: cs.onSurface.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
-              Text('No transactions yet', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSkeleton() {
     final cs = Theme.of(context).colorScheme;
     return SingleChildScrollView(

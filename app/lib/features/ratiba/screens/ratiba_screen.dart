@@ -99,6 +99,29 @@ class _SchedulesList extends StatelessWidget {
   final ScrollController scrollCtrl;
   const _SchedulesList({required this.member, required this.scrollCtrl});
 
+  void _confirmCancel(BuildContext ctx, String scheduleId) {
+    showDialog<void>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel Schedule'),
+        content: const Text('Are you sure you want to cancel this scheduled payment?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ctx.read<RatibaBloc>().add(
+                    RatibaScheduleCancelled(scheduleId: scheduleId, memberId: member['id']),
+                  );
+            },
+            child: const Text('Cancel Schedule'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -130,37 +153,73 @@ class _SchedulesList extends StatelessWidget {
             final s = schedules[i];
             final amount = double.tryParse(s['amount'].toString()) ?? 0;
             final nextRun = DateTime.tryParse(s['next_run_date'] ?? '');
-            final isActive = s['status'] == 'active';
+            final status = s['status'] as String? ?? 'active';
+            final isActive = status == 'active';
+            final isPaused = status == 'paused';
+            final isCancelled = status == 'cancelled';
+
+            Color statusColor = isActive
+                ? cs.primary
+                : isPaused
+                    ? Colors.orange
+                    : cs.onSurface.withValues(alpha: 0.3);
+
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isActive ? cs.primary.withValues(alpha: 0.3) : cs.outlineVariant),
+                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
               ),
               child: Row(children: [
-                Icon(Icons.repeat, color: isActive ? cs.primary : cs.onSurface.withValues(alpha: 0.4)),
+                Icon(Icons.repeat, color: statusColor),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(s['payment_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'PAYMENT',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text('KES ${amount.toStringAsFixed(2)} · ${s['frequency'] ?? ''}',
-                        style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
-                    if (nextRun != null)
-                      Text('Next: ${nextRun.day}/${nextRun.month}/${nextRun.year}',
-                          style: TextStyle(fontSize: 11, color: cs.primary)),
+                    Text(
+                      s['payment_type']?.toString().replaceAll('_', ' ').toUpperCase() ?? 'PAYMENT',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      'KES ${amount.toStringAsFixed(2)} · ${s['frequency'] ?? ''}',
+                      style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)),
+                    ),
+                    if (nextRun != null && !isCancelled)
+                      Text(
+                        'Next: ${nextRun.day}/${nextRun.month}/${nextRun.year}',
+                        style: TextStyle(fontSize: 11, color: statusColor),
+                      ),
+                    if (isCancelled)
+                      Text('Cancelled', style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.4))),
+                    if (isPaused)
+                      Text('Paused', style: TextStyle(fontSize: 11, color: Colors.orange)),
                   ]),
                 ),
-                if (isActive)
+                if (!isCancelled) ...[
+                  // Pause / Resume toggle
+                  if (isActive || isPaused)
+                    IconButton(
+                      icon: Icon(
+                        isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                        color: isActive ? Colors.orange : Colors.green,
+                      ),
+                      tooltip: isActive ? 'Pause' : 'Resume',
+                      onPressed: () => ctx.read<RatibaBloc>().add(
+                            RatibaScheduleStatusToggled(
+                              scheduleId: s['id'].toString(),
+                              memberId: member['id'],
+                              newStatus: isActive ? 'paused' : 'active',
+                            ),
+                          ),
+                    ),
+                  // Cancel
                   IconButton(
                     icon: const Icon(Icons.cancel_outlined, color: Colors.red),
-                    onPressed: () => ctx.read<RatibaBloc>().add(
-                          RatibaScheduleCancelled(scheduleId: s['id'].toString(), memberId: member['id']),
-                        ),
                     tooltip: 'Cancel',
+                    onPressed: () => _confirmCancel(ctx, s['id'].toString()),
                   ),
+                ],
               ]),
             );
           },

@@ -24,6 +24,17 @@ class RatibaScheduleCreated extends RatibaEvent {
   });
 }
 
+class RatibaScheduleStatusToggled extends RatibaEvent {
+  final String scheduleId;
+  final String memberId;
+  final String newStatus; // 'active' or 'paused'
+  RatibaScheduleStatusToggled({
+    required this.scheduleId,
+    required this.memberId,
+    required this.newStatus,
+  });
+}
+
 class RatibaScheduleCancelled extends RatibaEvent {
   final String scheduleId;
   final String memberId;

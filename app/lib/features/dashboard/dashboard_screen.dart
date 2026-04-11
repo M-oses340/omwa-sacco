@@ -415,6 +415,7 @@ class _TransactionTile extends StatelessWidget {
     final amount = double.tryParse(tx['amount'].toString()) ?? 0;
     final status = tx['status'] ?? 'completed';
     final isCredit = ['deposit', 'loan_disbursement', 'dividend'].contains(type);
+    final isScheduled = type == 'scheduled_payment';
     final date = DateTime.tryParse(tx['created_at'] ?? '');
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -422,7 +423,18 @@ class _TransactionTile extends StatelessWidget {
       decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          Icon(isCredit ? Icons.arrow_downward : Icons.arrow_upward, color: isCredit ? Colors.green : Colors.orange),
+          Icon(
+            isScheduled
+                ? Icons.schedule
+                : isCredit
+                    ? Icons.arrow_downward
+                    : Icons.arrow_upward,
+            color: isScheduled
+                ? Colors.indigo
+                : isCredit
+                    ? Colors.green
+                    : Colors.orange,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -436,7 +448,17 @@ class _TransactionTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}', style: TextStyle(color: isCredit ? Colors.green : Colors.orange, fontWeight: FontWeight.bold)),
+              Text(
+                '${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: isScheduled
+                      ? Colors.indigo
+                      : isCredit
+                          ? Colors.green
+                          : Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               if (status != 'completed')
                 Text(status.toUpperCase(), style: TextStyle(fontSize: 9, color: status == 'pending' ? Colors.blue : Colors.red, fontWeight: FontWeight.bold)),
             ],

@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
       return json({ received: true })
     }
 
-    const isWithdrawal = tx.transaction_type === 'withdrawal'
+    const isWithdrawal = tx.transaction_type === 'withdrawal' || tx.transaction_type === 'scheduled_payment'
 
     if (state === 'COMPLETE') {
       if (isWithdrawal) {

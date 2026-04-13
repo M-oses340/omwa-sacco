@@ -599,7 +599,14 @@ List<String> _buildCells(Map<String, dynamic> row, String reportId) {
       return [fmtDate(row['disbursed_at']), member(row), (row['loan_type'] as String? ?? '-').replaceAll('_', ' '), fmt(row['principal_amount']), (row['status'] as String? ?? '-').toUpperCase()];
     case 'loan_repayments':
       final loan = row['loans'];
-      return [fmtDate(row['due_date']), loan is Map ? (loan['loan_type'] as String? ?? '-').replaceAll('_', ' ') : '-', fmt(row['expected_amount']), fmt(row['paid_amount']), fmt(row['balance']), (row['status'] as String? ?? '-').toUpperCase()];
+      return [
+        fmtDate(loan is Map ? loan['due_date'] : null),
+        loan is Map ? (loan['loan_type'] as String? ?? '-').replaceAll('_', ' ') : '-',
+        fmt(row['expected_amount'] ?? row['amount']),
+        fmt(row['amount']),
+        fmt(row['balance_after']),
+        (row['payment_method'] as String? ?? '-').toUpperCase(),
+      ];
     case 'arrears':
       return [member(row), (row['loan_type'] as String? ?? '-').replaceAll('_', ' '), fmt(row['outstanding_balance']), daysPast(row['due_date']), (row['status'] as String? ?? '-').toUpperCase()];
     case 'npl':

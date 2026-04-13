@@ -139,8 +139,8 @@ async function mySavings(memberId: string) {
 async function loanRepayments(memberId: string, params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('loan_repayments')
-    .select('*, loans(loan_number, loan_type, principal)')
-    .eq('member_id', memberId).order('due_date', { ascending: false })
+    .select('*, loans(loan_number, loan_type, principal, due_date)')
+    .eq('member_id', memberId).order('created_at', { ascending: false })
   q = applyDateFilter(q, 'due_date', start, end)
   const { data, error } = await q
   if (error) throw new Error(error.message)

@@ -163,7 +163,7 @@ const List<ReportDefinition> kReports = [
     title: 'Repayment Schedule',
     description: 'Scheduled vs actual repayments',
     category: ReportCategory.loans,
-    columns: ['Due Date', 'Loan Type', 'Expected', 'Paid', 'Balance', 'Status'],
+    columns: ['Due Date', 'Loan Type', 'Amount', 'Paid', 'Balance After', 'Method'],
     query: 'loan_repayments',
   ),
   ReportDefinition(

@@ -139,7 +139,7 @@ async function mySavings(memberId: string) {
 async function loanRepayments(memberId: string, params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('loan_repayments')
-    .select('*, loans(loan_number, loan_type, principal_amount)')
+    .select('*, loans(loan_number, loan_type, principal)')
     .eq('member_id', memberId).order('due_date', { ascending: false })
   q = applyDateFilter(q, 'due_date', start, end)
   const { data, error } = await q
@@ -219,11 +219,11 @@ async function fosaBalances() {
 // ── Admin: Loan reports ───────────────────────────────────────────────────────
 async function loanBook() {
   const { data, error } = await db.from('loans')
-    .select('members(full_name, member_number), loan_number, loan_type, principal_amount, outstanding_balance, monthly_repayment, due_date, disbursed_at, status')
+    .select('members(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, monthly_repayment, due_date, disbursed_at, status')
     .in('status', ['disbursed', 'active']).order('outstanding_balance', { ascending: false })
   if (error) throw new Error(error.message)
   const rows = data ?? []
-  const totalPortfolio  = rows.reduce((s: number, r: any) => s + parseFloat(r.principal_amount ?? 0), 0)
+  const totalPortfolio  = rows.reduce((s: number, r: any) => s + parseFloat(r.principal ?? 0), 0)
   const totalOutstanding = rows.reduce((s: number, r: any) => s + parseFloat(r.outstanding_balance ?? 0), 0)
   return R({ data: rows, count: rows.length, summary: { total_portfolio: +totalPortfolio.toFixed(2), total_outstanding: +totalOutstanding.toFixed(2) } })
 }
@@ -231,13 +231,13 @@ async function loanBook() {
 async function loanDisbursements(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('loans')
-    .select('disbursed_at, members(full_name, member_number), loan_number, loan_type, principal_amount, status')
+    .select('disbursed_at, members(full_name, member_number), loan_number, loan_type, principal, status')
     .eq('status', 'disbursed').order('disbursed_at', { ascending: false })
   q = applyDateFilter(q, 'disbursed_at', start, end)
   const { data, error } = await q
   if (error) throw new Error(error.message)
   const rows = data ?? []
-  const total = rows.reduce((s: number, r: any) => s + parseFloat(r.principal_amount ?? 0), 0)
+  const total = rows.reduce((s: number, r: any) => s + parseFloat(r.principal ?? 0), 0)
   return R({ data: rows, count: rows.length, summary: { total_disbursed: +total.toFixed(2) } })
 }
 
@@ -258,7 +258,7 @@ async function arrearsReport() {
 
 async function nplReport() {
   const { data, error } = await db.from('loans')
-    .select('members(full_name, member_number), loan_number, loan_type, principal_amount, outstanding_balance, due_date')
+    .select('members(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, due_date')
     .eq('status', 'defaulted')
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -268,13 +268,13 @@ async function nplReport() {
 
 async function parReport() {
   const [bookRes, arrearsRes] = await Promise.all([
-    db.from('loans').select('loan_type, principal_amount').in('status', ['disbursed', 'active']),
+    db.from('loans').select('loan_type, principal').in('status', ['disbursed', 'active']),
     db.from('loans').select('loan_type, outstanding_balance').in('status', ['disbursed', 'defaulted']).lt('due_date', new Date().toISOString().split('T')[0]),
   ])
   const portfolio: Record<string, number> = {}
   const atRisk: Record<string, number> = {}
   for (const r of bookRes.data ?? []) {
-    portfolio[r.loan_type] = (portfolio[r.loan_type] ?? 0) + parseFloat(r.principal_amount)
+    portfolio[r.loan_type] = (portfolio[r.loan_type] ?? 0) + parseFloat(r.principal)
   }
   for (const r of arrearsRes.data ?? []) {
     atRisk[r.loan_type] = (atRisk[r.loan_type] ?? 0) + parseFloat(r.outstanding_balance)
@@ -305,12 +305,12 @@ async function incomeStatement(params: any) {
 
   // Interest income from loans
   const loanQ = applyDateFilter(
-    db.from('loans').select('loan_type, principal_amount, interest_rate, duration_months').eq('status', 'disbursed'),
+    db.from('loans').select('loan_type, principal, interest_rate, duration_months').eq('status', 'disbursed'),
     'disbursed_at', start, end
   )
   const { data: loans } = await loanQ
   const interestIncome = (loans ?? []).reduce((s: number, l: any) => {
-    const monthly = parseFloat(l.principal_amount) * (parseFloat(l.interest_rate) / 12 / 100)
+    const monthly = parseFloat(l.principal) * (parseFloat(l.interest_rate) / 12 / 100)
     return s + monthly * parseFloat(l.duration_months)
   }, 0)
 
@@ -449,7 +449,7 @@ async function dividendReport(params: any) {
 // ── Admin: Operational reports ────────────────────────────────────────────────
 async function pendingApprovals() {
   const { data, error } = await db.from('loans')
-    .select('loan_type, members(full_name, member_number), loan_number, principal_amount, created_at, status')
+    .select('loan_type, members(full_name, member_number), loan_number, principal, created_at, status')
     .eq('status', 'pending').order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return R({ data: data ?? [], count: (data ?? []).length })

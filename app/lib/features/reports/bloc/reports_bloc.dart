@@ -67,6 +67,7 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
         hasMore: all.length > _pageSize,
       ));
     } catch (e) {
+      debugPrint('[REPORTS] _onViewRequested error: $e');
       emit(ReportsError(e.toString().replaceAll('Exception: ', '')));
     }
   }
@@ -90,6 +91,7 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
       if (session == null) throw Exception('Session expired. Please log in again.');
 
       final token = session.accessToken;
+      debugPrint('[REPORTS] token prefix: ${token.substring(0, 20)}...');
       final url = Uri.parse('${SupabaseConstants.url}/functions/v1/reports');
 
       final res = await http.post(
@@ -107,9 +109,10 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
         }),
       ).timeout(const Duration(seconds: 30));
 
+      debugPrint('[REPORTS] status: ${res.statusCode} body: ${res.body.substring(0, res.body.length.clamp(0, 200))}');
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode != 200) {
-        throw Exception(data['error'] ?? 'Failed to load report');
+        throw Exception(data['error'] ?? 'Failed to load report (${res.statusCode})');
       }
       return (data['data'] as List? ?? []).cast<Map<String, dynamic>>();
     });

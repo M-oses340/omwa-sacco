@@ -16,6 +16,7 @@ class ReportViewerScreen extends StatefulWidget {
 }
 
 class _ReportViewerScreenState extends State<ReportViewerScreen> {
+  late final ReportsBloc _bloc;
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   List<SavedFilter> _savedFilters = [];
@@ -23,15 +24,16 @@ class _ReportViewerScreenState extends State<ReportViewerScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<ReportsBloc>().add(
-          ReportViewRequested(reportId: widget.report.id, memberId: widget.member['id']),
-        );
+    _bloc = ReportsBloc()
+      ..add(ReportViewRequested(
+          reportId: widget.report.id, memberId: widget.member['id']));
     _loadSavedFilters();
     _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _bloc.close();
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -80,10 +82,10 @@ class _ReportViewerScreenState extends State<ReportViewerScreen> {
 
   void _applySavedFilter(SavedFilter filter) {
     if (filter.type != null) {
-      context.read<ReportsBloc>().add(ReportsFilterChanged(type: filter.type));
+      _bloc.add(ReportsFilterChanged(type: filter.type));
     }
     if (filter.dateRange != null) {
-      context.read<ReportsBloc>().add(ReportsFilterChanged(dateRange: filter.dateRange));
+      _bloc.add(ReportsFilterChanged(dateRange: filter.dateRange));
     }
   }
 
@@ -97,7 +99,9 @@ class _ReportViewerScreenState extends State<ReportViewerScreen> {
     final cs = Theme.of(context).colorScheme;
     final color = widget.report.category.color;
 
-    return Scaffold(
+    return BlocProvider.value(
+      value: _bloc,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.report.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -185,7 +189,8 @@ class _ReportViewerScreenState extends State<ReportViewerScreen> {
           return const Center(child: CircularProgressIndicator());
         },
       ),
-    );
+    ), // Scaffold
+    ); // BlocProvider.value
   }
 }
 

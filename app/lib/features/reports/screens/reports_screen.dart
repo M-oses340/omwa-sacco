@@ -108,13 +108,10 @@ class _HubBody extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => BlocProvider.value(
-                    value: context.read<ReportsBloc>(),
-                    child: ReportCategoryScreen(
-                      member: member,
-                      category: cat,
-                      reports: reports,
-                    ),
+                  builder: (_) => ReportCategoryScreen(
+                    member: member,
+                    category: cat,
+                    reports: reports,
                   ),
                 ),
               ),
@@ -331,10 +328,7 @@ class _ReportCard extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: context.read<ReportsBloc>(),
-            child: ReportViewerScreen(report: report, member: member),
-          ),
+          builder: (_) => ReportViewerScreen(report: report, member: member),
         ),
       ),
       borderRadius: BorderRadius.circular(14),

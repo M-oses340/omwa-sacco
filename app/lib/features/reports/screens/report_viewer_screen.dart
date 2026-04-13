@@ -616,6 +616,15 @@ List<String> _buildCells(Map<String, dynamic> row, String reportId) {
       return [(row['loan_type'] as String? ?? '-').replaceAll('_', ' '), member(row), fmt(row['principal_amount']), fmtDate(row['created_at']), (row['status'] as String? ?? '-').toUpperCase()];
     case 'audit_trail':
       return [fmtDate(row['created_at']), row['user_id']?.toString() ?? '-', row['action']?.toString() ?? '-', row['details']?.toString() ?? '-'];
+    case 'daily_summary':
+      return [
+        row['date']?.toString() ?? '-',
+        fmt(row['deposits']),
+        fmt(row['withdrawals']),
+        fmt(row['loan_disbursements']),
+        fmt(row['loan_repayments']),
+        fmt(row['net']),
+      ];
     default:
       return row.values.map((v) => v?.toString() ?? '-').toList();
   }

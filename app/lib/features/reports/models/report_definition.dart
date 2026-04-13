@@ -109,7 +109,7 @@ const List<ReportDefinition> kReports = [
     description: 'Savings balance per member',
     category: ReportCategory.savings,
     adminOnly: true,
-    columns: ['Member No.', 'Name', 'Savings Balance', 'Shares Balance', 'Status'],
+    columns: ['Name', 'Savings Balance', 'Shares Balance', 'Status'],
     query: 'savings_summary',
   ),
   ReportDefinition(
@@ -238,7 +238,7 @@ const List<ReportDefinition> kReports = [
     title: 'My Transactions',
     description: 'Your full transaction history with filters',
     category: ReportCategory.transactions,
-    columns: ['Date', 'Type', 'Amount', 'Status'],
+    columns: ['Date', 'Type', 'Amount', 'Balance', 'Status'],
     query: 'my_transactions',
   ),
   ReportDefinition(
@@ -247,7 +247,7 @@ const List<ReportDefinition> kReports = [
     description: 'FOSA & BOSA withdrawals',
     category: ReportCategory.transactions,
     adminOnly: true,
-    columns: ['Date', 'Member', 'Account', 'Amount', 'Method', 'Status'],
+    columns: ['Date', 'Member', 'Amount', 'Method', 'Status'],
     query: 'withdrawal_report',
   ),
   ReportDefinition(
@@ -256,7 +256,7 @@ const List<ReportDefinition> kReports = [
     description: 'Aggregated transactions by day',
     category: ReportCategory.transactions,
     adminOnly: true,
-    columns: ['Date', 'Deposits', 'Withdrawals', 'Transfers', 'Net'],
+    columns: ['Date', 'Deposits', 'Withdrawals', 'Loan Disb.', 'Repayments', 'Net'],
     query: 'daily_summary',
   ),
   ReportDefinition(

@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/bloc/auth_bloc.dart';
-// FIX: Using the filename 'deposit_screen.dart' to match your directory
-import '../transactions/screens/deposit_screen.dart'; 
+import '../transactions/screens/deposit_screen.dart';
 import '../transactions/screens/withdraw_screen.dart';
 import '../transactions/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,6 +14,8 @@ import '../pay_bills/screens/pay_bills_screen.dart';
 import '../airtime/screens/airtime_screen.dart';
 import '../ratiba/screens/ratiba_screen.dart';
 import '../reports/screens/reports_screen.dart';
+import '../notifications/screens/notifications_screen.dart';
+import '../notifications/services/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -30,11 +31,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> _transactions = [];
   bool _loading = true;
   bool _balanceVisible = false;
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await NotificationService.instance.getUnreadCount(widget.member['id']);
+      if (mounted) setState(() => _unreadNotifications = count);
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -261,6 +271,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       IconButton(
                         icon: Icon(_balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: cs.onPrimary),
                         onPressed: () => setState(() => _balanceVisible = !_balanceVisible),
+                      ),
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.notifications_outlined, color: cs.onPrimary),
+                            onPressed: () async {
+                              await Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => NotificationsScreen(member: widget.member),
+                              ));
+                              _loadUnreadCount();
+                            },
+                          ),
+                          if (_unreadNotifications > 0)
+                            Positioned(
+                              right: 8, top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(color: cs.error, shape: BoxShape.circle),
+                                child: Text('$_unreadNotifications',
+                                    style: TextStyle(color: cs.onError, fontSize: 9, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                        ],
                       ),
                       IconButton(
                         icon: Icon(Icons.logout, color: cs.onPrimary),

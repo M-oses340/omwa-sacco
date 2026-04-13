@@ -53,7 +53,7 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
   Future<void> _onViewRequested(ReportViewRequested event, Emitter<ReportsState> emit) async {
     emit(ReportsLoading());
     try {
-      final all = await _fetchReport(event.reportId, event.memberId);
+      final all = await _fetchReport(event.reportId, event.memberId, event.params);
       final page = all.take(_pageSize).toList();
       emit(ReportViewData(
         reportId: event.reportId,
@@ -61,113 +61,30 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
         rows: page,
         selectedType: 'all',
         hasMore: all.length > _pageSize,
+        summary: event.summary,
       ));
     } catch (e) {
       emit(ReportsError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchReport(String reportId, String memberId) async {
+  Future<List<Map<String, dynamic>>> _fetchReport(
+    String reportId,
+    String memberId,
+    Map<String, dynamic>? params,
+  ) async {
     return ConnectivityService.instance.guard(() async {
-      switch (reportId) {
-        case 'my_transactions':
-        case 'member_statement':
-          return (await _db.from('transactions').select().eq('member_id', memberId).order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'my_savings':
-          final results = await Future.wait([
-            _db.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-            _db.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-          ]);
-          final rows = <Map<String, dynamic>>[];
-          if (results[0] != null) {
-            final b = results[0] as Map<String, dynamic>;
-            rows.add({'account': 'BOSA Savings', 'balance': b['savings_balance'], 'status': b['status']});
-            rows.add({'account': 'BOSA Shares', 'balance': b['shares_balance'], 'status': b['status']});
-          }
-          if (results[1] != null) {
-            final f = results[1] as Map<String, dynamic>;
-            rows.add({'account': 'FOSA', 'balance': f['balance'], 'status': f['status']});
-          }
-          return rows;
-
-        case 'loan_repayments':
-          return (await _db.from('loan_repayments').select('*, loans(loan_type, principal_amount)').eq('member_id', memberId).order('due_date', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'member_register':
-          return (await _db.from('members').select('member_number, full_name, phone_number, status, bosa_accounts(savings_balance, shares_balance), fosa_accounts(balance)').order('member_number'))
-              .cast<Map<String, dynamic>>();
-
-        case 'new_members':
-          return (await _db.from('members').select('member_number, full_name, phone_number, created_at, status').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'dormant_members':
-          final cutoff = DateTime.now().subtract(const Duration(days: 90)).toIso8601String();
-          return (await _db.from('members').select('member_number, full_name, bosa_accounts(savings_balance), fosa_accounts(balance)').lt('last_activity_at', cutoff))
-              .cast<Map<String, dynamic>>();
-
-        case 'savings_summary':
-          return (await _db.from('bosa_accounts').select('members(member_number, full_name), savings_balance, shares_balance, status').order('savings_balance', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'deposit_collection':
-          return (await _db.from('transactions').select('created_at, members(full_name, member_number), amount, payment_method, status').eq('transaction_type', 'deposit').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'fosa_balances':
-          return (await _db.from('fosa_accounts').select('account_number, members(full_name, member_number), balance, status').order('balance', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'loan_book':
-          return (await _db.from('loans').select('members(full_name, member_number), loan_type, principal_amount, outstanding_balance, due_date, status').inFilter('status', ['disbursed', 'active']).order('outstanding_balance', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'loan_disbursements':
-          return (await _db.from('loans').select('disbursed_at, members(full_name, member_number), loan_type, principal_amount, status').eq('status', 'disbursed').order('disbursed_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'arrears':
-          return (await _db.from('loans').select('members(full_name, member_number), loan_type, outstanding_balance, due_date, status').eq('status', 'defaulted').order('due_date'))
-              .cast<Map<String, dynamic>>();
-
-        case 'npl':
-          return (await _db.from('loans').select('members(full_name, member_number), loan_type, principal_amount, outstanding_balance, due_date').eq('status', 'defaulted'))
-              .cast<Map<String, dynamic>>();
-
-        case 'withdrawal_report':
-          return (await _db.from('transactions').select('created_at, members(full_name, member_number), amount, payment_method, status').inFilter('transaction_type', ['withdrawal', 'fosa_withdrawal']).order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'daily_summary':
-          return (await _db.from('transactions').select('created_at, transaction_type, amount, status').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'mpesa_reconciliation':
-          return (await _db.from('transactions').select('created_at, reference, members(full_name), amount, status').eq('payment_method', 'mpesa').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'share_capital':
-          return (await _db.from('bosa_accounts').select('members(member_number, full_name), shares_balance, status').order('shares_balance', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'dividend_report':
-          return (await _db.from('transactions').select('created_at, members(member_number, full_name), amount').eq('transaction_type', 'dividend').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'pending_approvals':
-          return (await _db.from('loans').select('loan_type, members(full_name, member_number), principal_amount, created_at, status').eq('status', 'pending').order('created_at', ascending: false))
-              .cast<Map<String, dynamic>>();
-
-        case 'audit_trail':
-          return (await _db.from('audit_logs').select().order('created_at', ascending: false).limit(200))
-              .cast<Map<String, dynamic>>();
-
-        default:
-          return [];
+      final res = await _db.functions.invoke('reports', body: {
+        'report': reportId,
+        'member_id': memberId,
+        'params': params ?? {},
+      });
+      if (res.status != 200) {
+        final err = (res.data as Map<String, dynamic>?)?['error'] ?? 'Failed to load report';
+        throw Exception(err);
       }
+      final body = res.data as Map<String, dynamic>;
+      return (body['data'] as List? ?? []).cast<Map<String, dynamic>>();
     });
   }
 

@@ -12,7 +12,8 @@ class ReportsLoaded extends ReportsEvent {
 class ReportViewRequested extends ReportsEvent {
   final String reportId;
   final String memberId;
-  ReportViewRequested({required this.reportId, required this.memberId});
+  final Map<String, dynamic>? params;
+  ReportViewRequested({required this.reportId, required this.memberId, this.params});
 }
 
 class ReportsFilterChanged extends ReportsEvent {

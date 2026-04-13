@@ -21,14 +21,15 @@ class ReportsHubData extends ReportsState {
 
 class ReportViewData extends ReportsState {
   final String reportId;
-  final List<Map<String, dynamic>> allRows;   // full unfiltered dataset
-  final List<Map<String, dynamic>> rows;      // filtered + searched + paginated view
+  final List<Map<String, dynamic>> allRows;
+  final List<Map<String, dynamic>> rows;
   final String selectedType;
   final DateTimeRange? dateRange;
   final String searchQuery;
   final int page;
   final int pageSize;
   final bool hasMore;
+  final Map<String, dynamic>? summary;
 
   ReportViewData({
     required this.reportId,
@@ -40,6 +41,7 @@ class ReportViewData extends ReportsState {
     this.page = 0,
     this.pageSize = 50,
     this.hasMore = false,
+    this.summary,
   });
 
   ReportViewData copyWith({
@@ -51,6 +53,7 @@ class ReportViewData extends ReportsState {
     String? searchQuery,
     int? page,
     bool? hasMore,
+    Map<String, dynamic>? summary,
   }) {
     return ReportViewData(
       reportId: reportId,
@@ -62,6 +65,7 @@ class ReportViewData extends ReportsState {
       page: page ?? this.page,
       pageSize: pageSize,
       hasMore: hasMore ?? this.hasMore,
+      summary: summary ?? this.summary,
     );
   }
 }

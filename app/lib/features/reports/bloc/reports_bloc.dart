@@ -73,11 +73,20 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     Map<String, dynamic>? params,
   ) async {
     return ConnectivityService.instance.guard(() async {
-      final res = await _db.functions.invoke('reports', body: {
-        'report': reportId,
-        'member_id': memberId,
-        'params': params ?? {},
-      });
+      // Attach the current session JWT so the edge function can authenticate
+      final session = _db.auth.currentSession;
+      final jwt = session?.accessToken;
+
+      final res = await _db.functions.invoke(
+        'reports',
+        body: {
+          'report': reportId,
+          'member_id': memberId,
+          'params': params ?? {},
+          if (jwt != null) 'jwt': jwt,
+        },
+        headers: jwt != null ? {'Authorization': 'Bearer $jwt'} : null,
+      );
       if (res.status != 200) {
         final err = (res.data as Map<String, dynamic>?)?['error'] ?? 'Failed to load report';
         throw Exception(err);

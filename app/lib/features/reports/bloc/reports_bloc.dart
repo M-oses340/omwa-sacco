@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/constants/supabase_constants.dart';
 import '../../../core/services/connectivity_service.dart';
 
 part 'reports_event.dart';
@@ -73,26 +77,41 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     Map<String, dynamic>? params,
   ) async {
     return ConnectivityService.instance.guard(() async {
-      // Attach the current session JWT so the edge function can authenticate
-      final session = _db.auth.currentSession;
-      final jwt = session?.accessToken;
+      // Use same session-refresh pattern as other blocs
+      var session = _db.auth.currentSession;
+      try {
+        final refreshed = await _db.auth.refreshSession();
+        if (refreshed.session != null) session = refreshed.session!;
+      } catch (e) {
+        debugPrint('[REPORTS] refresh failed: $e');
+        session = _db.auth.currentSession ?? session;
+      }
 
-      final res = await _db.functions.invoke(
-        'reports',
-        body: {
+      if (session == null) throw Exception('Session expired. Please log in again.');
+
+      final token = session.accessToken;
+      final url = Uri.parse('${SupabaseConstants.url}/functions/v1/reports');
+
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'apikey': SupabaseConstants.anonKey,
+        },
+        body: jsonEncode({
           'report': reportId,
           'member_id': memberId,
           'params': params ?? {},
-          if (jwt != null) 'jwt': jwt,
-        },
-        headers: jwt != null ? {'Authorization': 'Bearer $jwt'} : null,
-      );
-      if (res.status != 200) {
-        final err = (res.data as Map<String, dynamic>?)?['error'] ?? 'Failed to load report';
-        throw Exception(err);
+          'jwt': token,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode != 200) {
+        throw Exception(data['error'] ?? 'Failed to load report');
       }
-      final body = res.data as Map<String, dynamic>;
-      return (body['data'] as List? ?? []).cast<Map<String, dynamic>>();
+      return (data['data'] as List? ?? []).cast<Map<String, dynamic>>();
     });
   }
 

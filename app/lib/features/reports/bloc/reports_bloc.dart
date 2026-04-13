@@ -7,6 +7,7 @@ part 'reports_event.dart';
 part 'reports_state.dart';
 
 const _adminRoles = ['admin', 'treasurer', 'chairman'];
+const _pageSize = 50;
 
 class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
   final SupabaseClient _db = Supabase.instance.client;
@@ -16,6 +17,9 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     on<ReportViewRequested>(_onViewRequested);
     on<ReportsFilterChanged>(_onFilterChanged);
     on<ReportsDateRangeCleared>(_onDateRangeCleared);
+    on<ReportsSearchChanged>(_onSearchChanged);
+    on<ReportsLoadMoreRequested>(_onLoadMore);
+    on<ReportsDatePresetApplied>(_onPresetApplied);
   }
 
   // ── Hub ───────────────────────────────────────────────────────────────────
@@ -49,12 +53,14 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
   Future<void> _onViewRequested(ReportViewRequested event, Emitter<ReportsState> emit) async {
     emit(ReportsLoading());
     try {
-      final rows = await _fetchReport(event.reportId, event.memberId);
+      final all = await _fetchReport(event.reportId, event.memberId);
+      final page = all.take(_pageSize).toList();
       emit(ReportViewData(
         reportId: event.reportId,
-        rows: rows,
-        allRows: rows,
+        allRows: all,
+        rows: page,
         selectedType: 'all',
+        hasMore: all.length > _pageSize,
       ));
     } catch (e) {
       emit(ReportsError(e.toString().replaceAll('Exception: ', '')));
@@ -172,34 +178,102 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
     if (current is! ReportViewData) return;
     final newType = event.type ?? current.selectedType;
     final newRange = event.dateRange ?? current.dateRange;
+    final newSearch = event.search ?? current.searchQuery;
+    final filtered = _applyFilters(current.allRows, newType, newRange, newSearch);
     emit(current.copyWith(
       selectedType: newType,
       dateRange: newRange,
-      rows: _applyFilter(current.allRows, newType, newRange),
+      searchQuery: newSearch,
+      rows: filtered.take(_pageSize).toList(),
+      page: 0,
+      hasMore: filtered.length > _pageSize,
     ));
   }
 
   void _onDateRangeCleared(ReportsDateRangeCleared event, Emitter<ReportsState> emit) {
     final current = state;
     if (current is! ReportViewData) return;
+    final filtered = _applyFilters(current.allRows, current.selectedType, null, current.searchQuery);
     emit(current.copyWith(
       clearDateRange: true,
-      rows: _applyFilter(current.allRows, current.selectedType, null),
+      rows: filtered.take(_pageSize).toList(),
+      page: 0,
+      hasMore: filtered.length > _pageSize,
     ));
   }
 
-  List<Map<String, dynamic>> _applyFilter(
+  void _onSearchChanged(ReportsSearchChanged event, Emitter<ReportsState> emit) {
+    final current = state;
+    if (current is! ReportViewData) return;
+    final filtered = _applyFilters(current.allRows, current.selectedType, current.dateRange, event.query);
+    emit(current.copyWith(
+      searchQuery: event.query,
+      rows: filtered.take(_pageSize).toList(),
+      page: 0,
+      hasMore: filtered.length > _pageSize,
+    ));
+  }
+
+  void _onLoadMore(ReportsLoadMoreRequested event, Emitter<ReportsState> emit) {
+    final current = state;
+    if (current is! ReportViewData || !current.hasMore) return;
+    final filtered = _applyFilters(current.allRows, current.selectedType, current.dateRange, current.searchQuery);
+    final nextPage = current.page + 1;
+    final end = (nextPage + 1) * _pageSize;
+    emit(current.copyWith(
+      rows: filtered.take(end).toList(),
+      page: nextPage,
+      hasMore: filtered.length > end,
+    ));
+  }
+
+  void _onPresetApplied(ReportsDatePresetApplied event, Emitter<ReportsState> emit) {
+    final current = state;
+    if (current is! ReportViewData) return;
+    final range = event.preset.range;
+    final filtered = _applyFilters(current.allRows, current.selectedType, range, current.searchQuery);
+    emit(current.copyWith(
+      dateRange: range,
+      rows: filtered.take(_pageSize).toList(),
+      page: 0,
+      hasMore: filtered.length > _pageSize,
+    ));
+  }
+
+  List<Map<String, dynamic>> _applyFilters(
     List<Map<String, dynamic>> all,
     String type,
     DateTimeRange? range,
+    String search,
   ) {
+    final q = search.toLowerCase().trim();
     return all.where((row) {
       final txType = row['transaction_type'] as String?;
       final typeMatch = type == 'all' || txType == null || txType == type;
-      final dateStr = row['created_at'] as String? ?? row['disbursed_at'] as String? ?? row['due_date'] as String?;
+
+      final dateStr = row['created_at'] as String? ??
+          row['disbursed_at'] as String? ??
+          row['due_date'] as String?;
       final date = dateStr != null ? DateTime.tryParse(dateStr) : null;
-      final dateMatch = range == null || (date != null && !date.isBefore(range.start) && !date.isAfter(range.end));
-      return typeMatch && dateMatch;
+      final dateMatch = range == null ||
+          (date != null && !date.isBefore(range.start) && !date.isAfter(range.end));
+
+      final searchMatch = q.isEmpty ||
+          row.values.any((v) => v?.toString().toLowerCase().contains(q) == true) ||
+          _nestedSearch(row, q);
+
+      return typeMatch && dateMatch && searchMatch;
     }).toList();
+  }
+
+  bool _nestedSearch(Map<String, dynamic> row, String q) {
+    for (final v in row.values) {
+      if (v is Map) {
+        if (v.values.any((nv) => nv?.toString().toLowerCase().contains(q) == true)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }

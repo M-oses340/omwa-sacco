@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createRemoteJWKSet, jwtVerify } from 'https://esm.sh/jose@5'
+import { notify } from '../notifications/index.ts'
 
 async function getUid(req: Request, bodyJwt?: string): Promise<string | null> {
   const url = Deno.env.get('SUPABASE_URL')!
@@ -227,6 +228,12 @@ async function applyLoan(memberId: string, body: any) {
   // Build amortization schedule
   const schedule = buildSchedule(p, principal, duration_months, rep.monthly)
 
+  await notify(memberId, 'loan_update',
+    'Loan Application Received 📋',
+    `Your ${p.name} application for KES ${principal.toLocaleString()} has been submitted and is pending review.`,
+    { type: 'loan_applied', loan_number: loanNumber }
+  )
+
   return json({ success: true, loan, summary: { ...rep, no_dividends: p.noDividends }, schedule })
 }
 
@@ -306,10 +313,20 @@ async function repayLoan(memberId: string, body: any) {
 // ── Approve (admin) ───────────────────────────────────────────────────────────
 async function approveLoan(body: any) {
   const { loan_id } = body
+  const { data: loan } = await supabase.from('loans').select('member_id, loan_number, loan_type, principal_amount')
+    .eq('id', loan_id).eq('status', 'pending').single()
+  if (!loan) return json({ error: 'Pending loan not found' }, 404)
+
   const { error } = await supabase.from('loans').update({
     status: 'approved', approved_at: new Date().toISOString(),
   }).eq('id', loan_id).eq('status', 'pending')
   if (error) return json({ error: error.message }, 500)
+
+  await notify(loan.member_id, 'loan_update',
+    'Loan Approved ✅',
+    `Your ${loan.loan_type.replaceAll('_', ' ')} loan of KES ${parseFloat(loan.principal_amount).toLocaleString()} has been approved.`,
+    { type: 'loan_approved', loan_id }
+  )
   return json({ success: true })
 }
 
@@ -339,6 +356,12 @@ async function disburseLoan(body: any) {
     amount: principal, balance_before: parseFloat(fosa.balance), balance_after: newBalance,
     reference: `DIS-${Date.now()}`, description: `Loan disbursement for ${loan.loan_number}`, status: 'completed',
   })
+
+  await notify(loan.member_id, 'loan_update',
+    'Loan Disbursed 💰',
+    `KES ${principal.toLocaleString()} has been credited to your FOSA account for loan ${loan.loan_number}.`,
+    { type: 'loan_disbursed', loan_id: body.loan_id }
+  )
 
   return json({ success: true })
 }

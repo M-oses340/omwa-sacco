@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse as json } from '../_shared/auth.ts'
+import { notify } from '../notifications/index.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -62,6 +63,11 @@ Deno.serve(async (req: Request) => {
             .eq('member_id', tx.member_id)
         }
         console.log('[WEBHOOK] Deposit credited', newBalance, 'to member', tx.member_id)
+        await notify(tx.member_id, 'deposit',
+          'Deposit Confirmed ✅',
+          `KES ${(amount || tx.amount).toLocaleString()} has been credited to your FOSA account. New balance: KES ${newBalance.toLocaleString()}.`,
+          { type: 'deposit', amount: String(amount || tx.amount) }
+        )
       }
     } else if (state === 'FAILED' || state === 'CANCELLED') {
       await supabase.from('transactions').update({
@@ -76,6 +82,11 @@ Deno.serve(async (req: Request) => {
           .update({ balance: refundBalance, updated_at: new Date().toISOString() })
           .eq('member_id', tx.member_id)
         console.log('[WEBHOOK] Withdrawal failed — refunded', refundBalance, 'to member', tx.member_id)
+        await notify(tx.member_id, 'withdrawal',
+          'Withdrawal Failed ❌',
+          `Your withdrawal of KES ${tx.amount.toLocaleString()} could not be processed. Your balance has been restored.`,
+          { type: 'withdrawal_failed' }
+        )
       }
     }
 

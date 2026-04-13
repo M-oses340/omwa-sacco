@@ -64,7 +64,7 @@ class NotificationService {
             .select()
             .eq('member_id', memberId)
             .maybeSingle());
-    return (data as Map<String, dynamic>?) ?? {
+    return data ?? {
       'deposits': true,
       'withdrawals': true,
       'loan_updates': true,

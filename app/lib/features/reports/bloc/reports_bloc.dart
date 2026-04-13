@@ -61,7 +61,6 @@ class ReportsBloc extends Bloc<ReportsEvent, ReportsState> {
         rows: page,
         selectedType: 'all',
         hasMore: all.length > _pageSize,
-        summary: event.summary,
       ));
     } catch (e) {
       emit(ReportsError(e.toString().replaceAll('Exception: ', '')));

@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/services/connectivity_service.dart';
-import '../../../core/constants/supabase_constants.dart';
+import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/constants/supabase_constants.dart';
 import '../models/loan_model.dart';
 import '../models/amortization_entry.dart';
 

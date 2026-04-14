@@ -8,7 +8,7 @@ import '../../features/auth/screens/pin_screen.dart';
 import '../../features/auth/screens/pin_confirm_screen.dart';
 import '../../features/auth/screens/pin_locked_screen.dart';
 import '../../features/auth/screens/registration_screen.dart';
-import '../../features/dashboard/dashboard_screen.dart';
+import '../../features/dashboard/screens/dashboard_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});

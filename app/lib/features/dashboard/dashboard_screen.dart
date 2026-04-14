@@ -16,6 +16,9 @@ import '../fosa/ratiba/screens/ratiba_screen.dart';
 import '../reports/screens/reports_screen.dart';
 import '../notifications/screens/notifications_screen.dart';
 import '../notifications/services/notification_service.dart';
+import '../fosa/transactions/screens/transactions_screen.dart';
+import '../fosa/transactions/widgets/transaction_tile.dart';
+import '../fosa/transactions/bloc/transactions_bloc.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -60,7 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 .select()
                 .eq('member_id', memberId)
                 .order('created_at', ascending: false)
-                .limit(20),
+                .limit(3),
           ]));
 
       if (mounted) {
@@ -217,13 +220,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                              TextButton(onPressed: () {}, child: const Text('See all')),
+                          TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BlocProvider(
+                                  create: (_) => TransactionsBloc()
+                                    ..add(TransactionsLoaded(memberId: widget.member['id'])),
+                                  child: TransactionsScreen(member: widget.member),
+                                ),
+                              ),
+                            ),
+                            child: const Text('See all'),
+                          ),
                             ],
                           ),
                         ),
                         ..._transactions.map((tx) => Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: _TransactionTile(tx: tx),
+                          child: TransactionTile(tx: tx),
                         )),
                         if (_transactions.isEmpty)
                           Padding(
@@ -414,70 +429,6 @@ class _QuickAction extends StatelessWidget {
           Container(width: 56, height: 56, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 26)),
           const SizedBox(height: 6),
           Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionTile extends StatelessWidget {
-  final Map<String, dynamic> tx;
-  const _TransactionTile({required this.tx});
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final type = tx['transaction_type'] ?? '';
-    final amount = double.tryParse(tx['amount'].toString()) ?? 0;
-    final status = tx['status'] ?? 'completed';
-    final isCredit = ['deposit', 'loan_disbursement', 'dividend'].contains(type);
-    final isScheduled = type == 'scheduled_payment';
-    final date = DateTime.tryParse(tx['created_at'] ?? '');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(
-            isScheduled
-                ? Icons.schedule
-                : isCredit
-                    ? Icons.arrow_downward
-                    : Icons.arrow_upward,
-            color: isScheduled
-                ? Colors.indigo
-                : isCredit
-                    ? Colors.green
-                    : Colors.orange,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(type.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                if (date != null) Text('${date.day}/${date.month}/${date.year}', style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5))),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isCredit ? '+' : '-'} KES ${amount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: isScheduled
-                      ? Colors.indigo
-                      : isCredit
-                          ? Colors.green
-                          : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (status != 'completed')
-                Text(status.toUpperCase(), style: TextStyle(fontSize: 9, color: status == 'pending' ? Colors.blue : Colors.red, fontWeight: FontWeight.bold)),
-            ],
-          ),
         ],
       ),
     );

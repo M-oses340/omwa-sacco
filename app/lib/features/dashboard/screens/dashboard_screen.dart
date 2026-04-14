@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../fosa/deposit/screens/deposit_screen.dart';
 import '../../fosa/withdraw/screens/withdraw_screen.dart';

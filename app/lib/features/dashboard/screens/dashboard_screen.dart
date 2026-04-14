@@ -18,6 +18,8 @@ import '../../transactions/screens/transactions_screen.dart';
 import '../../transactions/widgets/transaction_tile.dart';
 import '../../transactions/bloc/transactions_bloc.dart';
 import '../bloc/dashboard_bloc.dart';
+import '../../fosa/scan_to_pay/screens/scan_to_pay_screen.dart';
+import '../../fosa/scan_to_pay/utils/qr_parser.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -58,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return BlocProvider(
       create: (_) => DashboardBloc()..add(DashboardDataLoaded(memberId: widget.member['id'])),
       child: Scaffold(
+        floatingActionButton: _ScanToPayFab(member: widget.member),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -440,5 +443,40 @@ class _GravatarAvatarState extends State<_GravatarAvatar> {
       onBackgroundImageError: imageUrl != null ? (_, __) => setState(() => _imageError = true) : null,
       child: (imageUrl == null || _imageError) ? Text(widget.fallback, style: TextStyle(color: widget.onPrimaryColor, fontWeight: FontWeight.bold)) : null,
     );
+  }
+}
+
+class _ScanToPayFab extends StatelessWidget {
+  final Map<String, dynamic> member;
+  const _ScanToPayFab({required this.member});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.extended(
+      onPressed: () => _scan(context),
+      backgroundColor: Colors.black87,
+      foregroundColor: Colors.white,
+      icon: const Icon(Icons.qr_code_scanner),
+      label: const Text('Scan to Pay', style: TextStyle(fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Future<void> _scan(BuildContext context) async {
+    final result = await Navigator.push<QrParseResult>(
+      context,
+      MaterialPageRoute(builder: (_) => const ScanToPayScreen()),
+    );
+    if (result == null || !result.isValid || !context.mounted) return;
+
+    final initialData = <String, dynamic>{'type': result.type};
+    if (result.type == 'paybill') {
+      initialData['businessNumber'] = result.businessNumber ?? '';
+      initialData['accountNumber'] = result.accountNumber ?? '';
+    } else {
+      initialData['tillNumber'] = result.tillNumber ?? '';
+    }
+    if (result.amount != null) initialData['amount'] = result.amount;
+
+    await showPayBillsSheet(context, member, initialData: initialData);
   }
 }

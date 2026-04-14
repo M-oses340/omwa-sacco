@@ -3,21 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/pay_bills_bloc.dart';
 
-Future<bool?> showPayBillsSheet(BuildContext context, Map<String, dynamic> member) {
+Future<bool?> showPayBillsSheet(BuildContext context, Map<String, dynamic> member, {Map<String, dynamic>? initialData}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => BlocProvider(
       create: (_) => PayBillsBloc(),
-      child: _PayBillsSheet(member: member),
+      child: _PayBillsSheet(member: member, initialData: initialData),
     ),
   );
 }
 
 class _PayBillsSheet extends StatefulWidget {
   final Map<String, dynamic> member;
-  const _PayBillsSheet({required this.member});
+  final Map<String, dynamic>? initialData;
+  const _PayBillsSheet({required this.member, this.initialData});
   @override
   State<_PayBillsSheet> createState() => _PayBillsSheetState();
 }
@@ -28,7 +29,9 @@ class _PayBillsSheetState extends State<_PayBillsSheet> with SingleTickerProvide
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    // If scanned a till, open on till tab (index 1)
+    final initialIndex = widget.initialData?['type'] == 'till' ? 1 : 0;
+    _tabCtrl = TabController(length: 2, vsync: this, initialIndex: initialIndex);
   }
 
   @override
@@ -85,8 +88,8 @@ class _PayBillsSheetState extends State<_PayBillsSheet> with SingleTickerProvide
                 child: TabBarView(
                   controller: _tabCtrl,
                   children: [
-                    _PaybillForm(member: widget.member, scrollCtrl: scrollCtrl),
-                    _TillForm(member: widget.member, scrollCtrl: scrollCtrl),
+                    _PaybillForm(member: widget.member, scrollCtrl: scrollCtrl, initialData: widget.initialData),
+                    _TillForm(member: widget.member, scrollCtrl: scrollCtrl, initialData: widget.initialData),
                   ],
                 ),
               ),
@@ -103,7 +106,8 @@ class _PayBillsSheetState extends State<_PayBillsSheet> with SingleTickerProvide
 class _PaybillForm extends StatefulWidget {
   final Map<String, dynamic> member;
   final ScrollController scrollCtrl;
-  const _PaybillForm({required this.member, required this.scrollCtrl});
+  final Map<String, dynamic>? initialData;
+  const _PaybillForm({required this.member, required this.scrollCtrl, this.initialData});
   @override
   State<_PaybillForm> createState() => _PaybillFormState();
 }
@@ -113,6 +117,18 @@ class _PaybillFormState extends State<_PaybillForm> {
   final _businessNumberCtrl = TextEditingController();
   final _accountNumberCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData?['type'] == 'paybill') {
+      _businessNumberCtrl.text = widget.initialData?['businessNumber'] ?? '';
+      _accountNumberCtrl.text = widget.initialData?['accountNumber'] ?? '';
+      if (widget.initialData?['amount'] != null) {
+        _amountCtrl.text = widget.initialData!['amount'].toString();
+      }
+    }
+  }
 
   static const _commonPaybills = [
     {'name': 'KPLC Prepaid', 'number': '888880'},
@@ -211,7 +227,8 @@ class _PaybillFormState extends State<_PaybillForm> {
 class _TillForm extends StatefulWidget {
   final Map<String, dynamic> member;
   final ScrollController scrollCtrl;
-  const _TillForm({required this.member, required this.scrollCtrl});
+  final Map<String, dynamic>? initialData;
+  const _TillForm({required this.member, required this.scrollCtrl, this.initialData});
   @override
   State<_TillForm> createState() => _TillFormState();
 }
@@ -220,6 +237,17 @@ class _TillFormState extends State<_TillForm> {
   final _formKey = GlobalKey<FormState>();
   final _tillNumberCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData?['type'] == 'till') {
+      _tillNumberCtrl.text = widget.initialData?['tillNumber'] ?? '';
+      if (widget.initialData?['amount'] != null) {
+        _amountCtrl.text = widget.initialData!['amount'].toString();
+      }
+    }
+  }
 
   @override
   void dispose() {

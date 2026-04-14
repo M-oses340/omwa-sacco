@@ -17,15 +17,14 @@ class TransactionsBloc extends Bloc<TransactionsEvent, TransactionsState> {
       var query = _supabase
           .from('transactions')
           .select()
-          .eq('member_id', event.memberId)
-          .order('created_at', ascending: false);
+          .eq('member_id', event.memberId);
 
       if (event.type != null) {
         query = query.eq('transaction_type', event.type!);
       }
 
-      final data = await query;
-      emit(TransactionsLoaded_(
+      final data = await query.order('created_at', ascending: false);
+      emit(TransactionsSuccess(
         transactions: (data as List).cast<Map<String, dynamic>>(),
         filter: event.type,
       ));

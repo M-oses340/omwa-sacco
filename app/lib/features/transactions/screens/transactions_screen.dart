@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/transactions_bloc.dart';
+import '../widgets/transaction_tile.dart';
 
 class TransactionsScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -13,7 +14,7 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String? _activeFilter;
 
-  static const _filters = [
+  static const _filters = <Map<String, String?>>[
     {'label': 'All', 'value': null},
     {'label': 'Deposits', 'value': 'deposit'},
     {'label': 'Withdrawals', 'value': 'withdrawal'},
@@ -48,9 +49,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final f = _filters[i];
                 final selected = _activeFilter == f['value'];
                 return FilterChip(
-                  label: Text(f['label'] as String),
+                  label: Text(f['label']!),
                   selected: selected,
-                  onSelected: (_) => _applyFilter(f['value'] as String?),
+                  onSelected: (_) => _applyFilter(f['value']),
                   selectedColor: cs.primaryContainer,
                   checkmarkColor: cs.onPrimaryContainer,
                 );
@@ -78,7 +79,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ]),
             );
           }
-          if (state is TransactionsLoaded_) {
+          if (state is TransactionsSuccess) {
             final txs = state.transactions;
             if (txs.isEmpty) {
               return Center(

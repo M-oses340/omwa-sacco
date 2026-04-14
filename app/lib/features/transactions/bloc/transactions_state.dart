@@ -5,11 +5,11 @@ abstract class TransactionsState {}
 class TransactionsInitial extends TransactionsState {}
 class TransactionsLoading extends TransactionsState {}
 
-// Named with trailing underscore to avoid conflict with the event
-class TransactionsLoaded_ extends TransactionsState {
+// Renamed from TransactionsLoaded_ to avoid conflict with the event name
+class TransactionsSuccess extends TransactionsState {
   final List<Map<String, dynamic>> transactions;
   final String? filter;
-  TransactionsLoaded_({required this.transactions, this.filter});
+  TransactionsSuccess({required this.transactions, this.filter});
 }
 
 class TransactionsError extends TransactionsState {

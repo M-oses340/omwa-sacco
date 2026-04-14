@@ -3,22 +3,22 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../auth/bloc/auth_bloc.dart';
-import '../fosa/deposit/screens/deposit_screen.dart';
-import '../fosa/withdraw/screens/withdraw_screen.dart';
-import '../fosa/transfer/screens/transfer_screen.dart';
-import '../../core/theme/app_theme.dart';
-import '../bosa/loans/screens/loans_screen.dart';
-import '../fosa/pay_bills/screens/pay_bills_screen.dart';
-import '../fosa/airtime/screens/airtime_screen.dart';
-import '../fosa/ratiba/screens/ratiba_screen.dart';
-import '../reports/screens/reports_screen.dart';
-import '../notifications/screens/notifications_screen.dart';
-import '../notifications/services/notification_service.dart';
-import '../transactions/screens/transactions_screen.dart';
-import '../transactions/widgets/transaction_tile.dart';
-import '../transactions/bloc/transactions_bloc.dart';
-import 'bloc/dashboard_bloc.dart';
+import '../../auth/bloc/auth_bloc.dart';
+import '../../fosa/deposit/screens/deposit_screen.dart';
+import '../../fosa/withdraw/screens/withdraw_screen.dart';
+import '../../fosa/transfer/screens/transfer_screen.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../bosa/loans/screens/loans_screen.dart';
+import '../../fosa/pay_bills/screens/pay_bills_screen.dart';
+import '../../fosa/airtime/screens/airtime_screen.dart';
+import '../../fosa/ratiba/screens/ratiba_screen.dart';
+import '../../reports/screens/reports_screen.dart';
+import '../../notifications/screens/notifications_screen.dart';
+import '../../notifications/services/notification_service.dart';
+import '../../transactions/screens/transactions_screen.dart';
+import '../../transactions/widgets/transaction_tile.dart';
+import '../../transactions/bloc/transactions_bloc.dart';
+import '../bloc/dashboard_bloc.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -128,10 +128,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     label: 'Deposit',
                                     color: Colors.green,
                                     onTap: () async {
+                                      final bloc = context.read<DashboardBloc>();
                                       final refreshed = await showDepositSheet(context, widget.member);
                                       if (refreshed == true && mounted) {
                                         await Future.delayed(const Duration(seconds: 2));
-                                        _refresh(context);
+                                        bloc.add(DashboardDataLoaded(memberId: widget.member['id']));
                                       }
                                     },
                                   ),
@@ -140,8 +141,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     label: 'Withdraw',
                                     color: Colors.orange,
                                     onTap: () async {
+                                      final bloc = context.read<DashboardBloc>();
                                       final refreshed = await showWithdrawSheet(context, widget.member);
-                                      if (refreshed == true && mounted) _refresh(context);
+                                      if (refreshed == true && mounted) bloc.add(DashboardDataLoaded(memberId: widget.member['id']));
                                     },
                                   ),
                                   _QuickAction(
@@ -149,8 +151,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     label: 'Transfer',
                                     color: Colors.blue,
                                     onTap: () async {
+                                      final bloc = context.read<DashboardBloc>();
                                       final refreshed = await showTransferSheet(context, widget.member);
-                                      if (refreshed == true && mounted) _refresh(context);
+                                      if (refreshed == true && mounted) bloc.add(DashboardDataLoaded(memberId: widget.member['id']));
                                     },
                                   ),
                                   _QuickAction(
@@ -170,8 +173,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     label: 'Pay Bills',
                                     color: Colors.teal,
                                     onTap: () async {
+                                      final bloc = context.read<DashboardBloc>();
                                       final refreshed = await showPayBillsSheet(context, widget.member);
-                                      if (refreshed == true && mounted) _refresh(context);
+                                      if (refreshed == true && mounted) bloc.add(DashboardDataLoaded(memberId: widget.member['id']));
                                     },
                                   ),
                                   _QuickAction(
@@ -185,8 +189,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     label: 'Airtime',
                                     color: Colors.red,
                                     onTap: () async {
+                                      final bloc = context.read<DashboardBloc>();
                                       final refreshed = await showBuyAirtimeSheet(context, widget.member);
-                                      if (refreshed == true && mounted) _refresh(context);
+                                      if (refreshed == true && mounted) bloc.add(DashboardDataLoaded(memberId: widget.member['id']));
                                     },
                                   ),
                                   _QuickAction(

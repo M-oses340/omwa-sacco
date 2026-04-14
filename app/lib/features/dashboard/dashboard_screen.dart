@@ -16,9 +16,9 @@ import '../fosa/ratiba/screens/ratiba_screen.dart';
 import '../reports/screens/reports_screen.dart';
 import '../notifications/screens/notifications_screen.dart';
 import '../notifications/services/notification_service.dart';
-import '../fosa/transactions/screens/transactions_screen.dart';
-import '../fosa/transactions/widgets/transaction_tile.dart';
-import '../fosa/transactions/bloc/transactions_bloc.dart';
+import '../transactions/screens/transactions_screen.dart';
+import '../transactions/widgets/transaction_tile.dart';
+import '../transactions/bloc/transactions_bloc.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;

@@ -8,7 +8,6 @@ import '../fosa/deposit/screens/deposit_screen.dart';
 import '../fosa/withdraw/screens/withdraw_screen.dart';
 import '../fosa/transfer/screens/transfer_screen.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/services/connectivity_service.dart';
 import '../bosa/loans/screens/loans_screen.dart';
 import '../fosa/pay_bills/screens/pay_bills_screen.dart';
 import '../fosa/airtime/screens/airtime_screen.dart';
@@ -19,6 +18,7 @@ import '../notifications/services/notification_service.dart';
 import '../transactions/screens/transactions_screen.dart';
 import '../transactions/widgets/transaction_tile.dart';
 import '../transactions/bloc/transactions_bloc.dart';
+import 'bloc/dashboard_bloc.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic> member;
@@ -29,17 +29,12 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic>? _bosa;
-  Map<String, dynamic>? _fosa;
-  List<Map<String, dynamic>> _transactions = [];
-  bool _loading = true;
   bool _balanceVisible = false;
   int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
     _loadUnreadCount();
   }
 
@@ -50,41 +45,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadData() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final memberId = widget.member['id'];
-      
-      final results = await ConnectivityService.instance.guard(() => Future.wait([
-            supabase.from('bosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-            supabase.from('fosa_accounts').select().eq('member_id', memberId).maybeSingle(),
-            supabase
-                .from('transactions')
-                .select()
-                .eq('member_id', memberId)
-                .order('created_at', ascending: false)
-                .limit(3),
-          ]));
-
-      if (mounted) {
-        setState(() {
-          _bosa = results[0] as Map<String, dynamic>?;
-          _fosa = results[1] as Map<String, dynamic>?;
-          _transactions = (results[2] as List).cast<Map<String, dynamic>>();
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
-      }
-    }
+  void _refresh(BuildContext context) {
+    context.read<DashboardBloc>().add(DashboardDataLoaded(memberId: widget.member['id']));
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -93,16 +56,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final memberNumber = widget.member['member_number'] ?? '';
     final firstName = name.split(' ').first;
 
-    return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(cs, firstName, memberNumber, name),
-          Expanded(
-            child: _loading
-                ? _buildSkeleton()
-                : RefreshIndicator(
-                    onRefresh: _loadData,
+    return BlocProvider(
+      create: (_) => DashboardBloc()..add(DashboardDataLoaded(memberId: widget.member['id'])),
+      child: Scaffold(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(cs, firstName, memberNumber, name),
+            Expanded(
+              child: BlocConsumer<DashboardBloc, DashboardState>(
+                listener: (context, state) {
+                  if (state is DashboardError) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: cs.error,
+                    ));
+                  }
+                },
+                builder: (context, state) {
+                  if (state is DashboardLoading || state is DashboardInitial) {
+                    return _buildSkeleton(cs);
+                  }
+
+                  final bosa = state is DashboardSuccess ? state.bosa : null;
+                  final fosa = state is DashboardSuccess ? state.fosa : null;
+                  final txs = state is DashboardSuccess ? state.recentTransactions : <Map<String, dynamic>>[];
+
+                  return RefreshIndicator(
+                    onRefresh: () async => _refresh(context),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.only(bottom: 24),
@@ -112,32 +93,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _AccountCard(
-                                      title: 'BOSA',
-                                      subtitle: 'Savings & Shares',
-                                      balance: _bosa?['savings_balance'],
-                                      shares: _bosa?['shares_balance'],
-                                      accountNumber: _bosa?['account_number'],
-                                      color: AppColors.primary,
-                                      balanceVisible: _balanceVisible,
-                                    ),
+                              Row(children: [
+                                Expanded(
+                                  child: _AccountCard(
+                                    title: 'BOSA',
+                                    subtitle: 'Savings & Shares',
+                                    balance: bosa?['savings_balance'],
+                                    shares: bosa?['shares_balance'],
+                                    accountNumber: bosa?['account_number'],
+                                    color: AppColors.primary,
+                                    balanceVisible: _balanceVisible,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _AccountCard(
-                                      title: 'FOSA',
-                                      subtitle: 'Current Account',
-                                      balance: _fosa?['balance'],
-                                      accountNumber: _fosa?['account_number'],
-                                      color: AppColors.fosaGreen,
-                                      balanceVisible: _balanceVisible,
-                                    ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _AccountCard(
+                                    title: 'FOSA',
+                                    subtitle: 'Current Account',
+                                    balance: fosa?['balance'],
+                                    accountNumber: fosa?['account_number'],
+                                    color: AppColors.fosaGreen,
+                                    balanceVisible: _balanceVisible,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ]),
                               const SizedBox(height: 12),
                               Text('Quick Actions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
@@ -145,37 +124,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   _QuickAction(
-                                      icon: Icons.arrow_downward,
-                                      label: 'Deposit',
-                                      color: Colors.green,
-                                      onTap: () async {
-                                        final refreshed = await showDepositSheet(context, widget.member);
-                                        if (refreshed == true) {
-                                          await Future.delayed(const Duration(seconds: 2));
-                                          _loadData();
-                                        }
-                                      }),
+                                    icon: Icons.arrow_downward,
+                                    label: 'Deposit',
+                                    color: Colors.green,
+                                    onTap: () async {
+                                      final refreshed = await showDepositSheet(context, widget.member);
+                                      if (refreshed == true && mounted) {
+                                        await Future.delayed(const Duration(seconds: 2));
+                                        _refresh(context);
+                                      }
+                                    },
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.arrow_upward,
-                                      label: 'Withdraw',
-                                      color: Colors.orange,
-                                      onTap: () async {
-                                        final refreshed = await showWithdrawSheet(context, widget.member);
-                                        if (mounted && refreshed == true) _loadData();
-                                      }),
+                                    icon: Icons.arrow_upward,
+                                    label: 'Withdraw',
+                                    color: Colors.orange,
+                                    onTap: () async {
+                                      final refreshed = await showWithdrawSheet(context, widget.member);
+                                      if (refreshed == true && mounted) _refresh(context);
+                                    },
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.swap_horiz,
-                                      label: 'Transfer',
-                                      color: Colors.blue,
-                                      onTap: () async {
-                                        final refreshed = await showTransferSheet(context, widget.member);
-                                        if (refreshed == true) _loadData();
-                                      }),
+                                    icon: Icons.swap_horiz,
+                                    label: 'Transfer',
+                                    color: Colors.blue,
+                                    onTap: () async {
+                                      final refreshed = await showTransferSheet(context, widget.member);
+                                      if (refreshed == true && mounted) _refresh(context);
+                                    },
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.account_balance_wallet,
-                                      label: 'Loans',
-                                      color: Colors.purple,
-                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member)))),
+                                    icon: Icons.account_balance_wallet,
+                                    label: 'Loans',
+                                    color: Colors.purple,
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LoansScreen(member: widget.member))),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 12),
@@ -183,31 +166,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   _QuickAction(
-                                      icon: Icons.receipt_long,
-                                      label: 'Pay Bills',
-                                      color: Colors.teal,
-                                      onTap: () async {
-                                        final refreshed = await showPayBillsSheet(context, widget.member);
-                                        if (refreshed == true) _loadData();
-                                      }),
+                                    icon: Icons.receipt_long,
+                                    label: 'Pay Bills',
+                                    color: Colors.teal,
+                                    onTap: () async {
+                                      final refreshed = await showPayBillsSheet(context, widget.member);
+                                      if (refreshed == true && mounted) _refresh(context);
+                                    },
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.schedule,
-                                      label: 'Ratiba',
-                                      color: Colors.indigo,
-                                      onTap: () => showRatibaSheet(context, widget.member)),
+                                    icon: Icons.schedule,
+                                    label: 'Ratiba',
+                                    color: Colors.indigo,
+                                    onTap: () => showRatibaSheet(context, widget.member),
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.sim_card,
-                                      label: 'Airtime',
-                                      color: Colors.red,
-                                      onTap: () async {
-                                        final refreshed = await showBuyAirtimeSheet(context, widget.member);
-                                        if (refreshed == true) _loadData();
-                                      }),
+                                    icon: Icons.sim_card,
+                                    label: 'Airtime',
+                                    color: Colors.red,
+                                    onTap: () async {
+                                      final refreshed = await showBuyAirtimeSheet(context, widget.member);
+                                      if (refreshed == true && mounted) _refresh(context);
+                                    },
+                                  ),
                                   _QuickAction(
-                                      icon: Icons.bar_chart,
-                                      label: 'Reports',
-                                      color: Colors.brown,
-                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen(member: widget.member)))),
+                                    icon: Icons.bar_chart,
+                                    label: 'Reports',
+                                    color: Colors.brown,
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen(member: widget.member))),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -220,27 +207,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Recent Transactions', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                          TextButton(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider(
-                                  create: (_) => TransactionsBloc()
-                                    ..add(TransactionsLoaded(memberId: widget.member['id'])),
-                                  child: TransactionsScreen(member: widget.member),
+                              TextButton(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => BlocProvider(
+                                      create: (_) => TransactionsBloc()
+                                        ..add(TransactionsLoaded(memberId: widget.member['id'])),
+                                      child: TransactionsScreen(member: widget.member),
+                                    ),
+                                  ),
                                 ),
+                                child: const Text('See all'),
                               ),
-                            ),
-                            child: const Text('See all'),
-                          ),
                             ],
                           ),
                         ),
-                        ..._transactions.map((tx) => Padding(
+                        ...txs.map((tx) => Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                           child: TransactionTile(tx: tx),
                         )),
-                        if (_transactions.isEmpty)
+                        if (txs.isEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 40),
                             child: Center(
@@ -253,9 +240,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                       ],
                     ),
-                  ),
-          ),
-        ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -274,70 +264,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.account_balance, color: cs.onPrimary, size: 22),
-                      const SizedBox(width: 8),
-                      Text('Omwa Sacco', style: TextStyle(color: cs.onPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Row(
-                    children: [
+                  Row(children: [
+                    Icon(Icons.account_balance, color: cs.onPrimary, size: 22),
+                    const SizedBox(width: 8),
+                    Text('Omwa Sacco', style: TextStyle(color: cs.onPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ]),
+                  Row(children: [
+                    IconButton(
+                      icon: Icon(_balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: cs.onPrimary),
+                      onPressed: () => setState(() => _balanceVisible = !_balanceVisible),
+                    ),
+                    Stack(children: [
                       IconButton(
-                        icon: Icon(_balanceVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: cs.onPrimary),
-                        onPressed: () => setState(() => _balanceVisible = !_balanceVisible),
+                        icon: Icon(Icons.notifications_outlined, color: cs.onPrimary),
+                        onPressed: () async {
+                          await Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen(member: widget.member)));
+                          _loadUnreadCount();
+                        },
                       ),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.notifications_outlined, color: cs.onPrimary),
-                            onPressed: () async {
-                              await Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => NotificationsScreen(member: widget.member),
-                              ));
-                              _loadUnreadCount();
-                            },
+                      if (_unreadNotifications > 0)
+                        Positioned(
+                          right: 8, top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(color: cs.error, shape: BoxShape.circle),
+                            child: Text('$_unreadNotifications', style: TextStyle(color: cs.onError, fontSize: 9, fontWeight: FontWeight.bold)),
                           ),
-                          if (_unreadNotifications > 0)
-                            Positioned(
-                              right: 8, top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(color: cs.error, shape: BoxShape.circle),
-                                child: Text('$_unreadNotifications',
-                                    style: TextStyle(color: cs.onError, fontSize: 9, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.logout, color: cs.onPrimary),
-                        onPressed: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
-                      ),
-                    ],
-                  ),
+                        ),
+                    ]),
+                    IconButton(
+                      icon: Icon(Icons.logout, color: cs.onPrimary),
+                      onPressed: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
+                    ),
+                  ]),
                 ],
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  _GravatarAvatar(
-                    photoUrl: widget.member['profile_photo_url'] as String?,
-                    email: widget.member['email'] as String? ?? '',
-                    fallback: fullName.isNotEmpty ? fullName[0].toUpperCase() : 'M',
-                    radius: 28,
-                    onPrimaryColor: cs.onPrimary,
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Hello, $firstName 👋', style: TextStyle(color: cs.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text('Member #$memberNumber', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.6), fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
+              Row(children: [
+                _GravatarAvatar(
+                  photoUrl: widget.member['profile_photo_url'] as String?,
+                  email: widget.member['email'] as String? ?? '',
+                  fallback: fullName.isNotEmpty ? fullName[0].toUpperCase() : 'M',
+                  radius: 28,
+                  onPrimaryColor: cs.onPrimary,
+                ),
+                const SizedBox(width: 14),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Hello, $firstName 👋', style: TextStyle(color: cs.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('Member #$memberNumber', style: TextStyle(color: cs.onPrimary.withValues(alpha: 0.6), fontSize: 12)),
+                ]),
+              ]),
             ],
           ),
         ),
@@ -345,19 +321,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSkeleton() {
-    final cs = Theme.of(context).colorScheme;
+  Widget _buildSkeleton(ColorScheme cs) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
-              const SizedBox(width: 12),
-              Expanded(child: _SkeletonBox(height: 120, cs: cs)),
-            ],
-          ),
+          Row(children: [
+            Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+            const SizedBox(width: 12),
+            Expanded(child: _SkeletonBox(height: 120, cs: cs)),
+          ]),
           const SizedBox(height: 20),
           ...List.generate(4, (_) => Padding(padding: const EdgeInsets.only(bottom: 8), child: _SkeletonBox(height: 64, cs: cs))),
         ],
@@ -366,7 +339,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// Support Widgets 
 class _SkeletonBox extends StatelessWidget {
   final double height;
   final ColorScheme cs;
@@ -424,13 +396,15 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(width: 56, height: 56, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 26)),
-          const SizedBox(height: 6),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      ),
+      child: Column(children: [
+        Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+          child: Icon(icon, color: color, size: 26),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ]),
     );
   }
 }

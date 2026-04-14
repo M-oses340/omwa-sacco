@@ -45,7 +45,6 @@ class _ScanToPayScreenState extends State<ScanToPayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(

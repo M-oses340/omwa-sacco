@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/services/connectivity_service.dart';
+import '../../../../core/services/connectivity_service.dart';
 
 part 'ratiba_event.dart';
 part 'ratiba_state.dart';

@@ -358,6 +358,33 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Functions that perform their own JWT verification must opt out of the
+# edge runtime's built-in check, which only supports HS256 while Supabase
+# Auth issues ES256 tokens.
+[functions.fosa]
+verify_jwt = false
+
+[functions.loans]
+verify_jwt = false
+
+[functions.reports]
+verify_jwt = false
+
+[functions.transfer]
+verify_jwt = false
+
+[functions.airtime]
+verify_jwt = false
+
+[functions.pay-bills]
+verify_jwt = false
+
+[functions.notifications]
+verify_jwt = false
+
+[functions.ratiba]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

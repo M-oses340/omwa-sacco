@@ -30,7 +30,7 @@ export default function Notifications() {
   async function loadRecent() {
     setLoadingRecent(true)
     const { data } = await supabase.from('notifications')
-      .select('id, title, body, type, is_read, created_at, members(full_name, member_number)')
+      .select('id, title, body, type, is_read, created_at, members!notifications_member_id_fkey(full_name, member_number)')
       .order('created_at', { ascending: false })
       .limit(30)
     setRecent(data ?? [])

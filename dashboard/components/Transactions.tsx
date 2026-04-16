@@ -19,7 +19,7 @@ export default function Transactions() {
   async function load() {
     setLoading(true)
     let q = supabase.from('transactions')
-      .select('id, transaction_type, amount, status, reference, created_at, members(full_name, member_number)')
+      .select('id, transaction_type, amount, status, reference, created_at, members!transactions_member_id_fkey(full_name, member_number)')
       .order('created_at', { ascending: false })
       .limit(200)
     if (type) q = q.eq('transaction_type', type)

@@ -32,7 +32,7 @@ export default function Dividends() {
     setLoadingHistory(true)
     const { data } = await supabase
       .from('transactions')
-      .select('id, amount, created_at, description, members(full_name, member_number)')
+      .select('id, amount, created_at, description, members!transactions_member_id_fkey(full_name, member_number)')
       .eq('transaction_type', 'dividend')
       .order('created_at', { ascending: false })
       .limit(50)

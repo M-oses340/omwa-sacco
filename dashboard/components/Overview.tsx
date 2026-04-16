@@ -16,7 +16,7 @@ export default function Overview({ setPage }: { setPage?: (p: string) => void })
         supabase.from('loans').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('transactions').select('id', { count: 'exact' }).eq('transaction_type', 'withdrawal').eq('status', 'pending'),
         supabase.from('transactions')
-          .select('id, transaction_type, amount, status, created_at, members(full_name)')
+          .select('id, transaction_type, amount, status, created_at, members!transactions_member_id_fkey(full_name)')
           .order('created_at', { ascending: false })
           .limit(8),
       ])

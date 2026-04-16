@@ -37,7 +37,7 @@ export default function ManualDeposit() {
     setLoadingHistory(true)
     const { data } = await supabase
       .from('transactions')
-      .select('id, amount, transaction_type, reference, description, created_at, members(full_name, member_number)')
+      .select('id, amount, transaction_type, reference, description, created_at, members!transactions_member_id_fkey(full_name, member_number)')
       .in('transaction_type', ['deposit', 'share_purchase'])
       .order('created_at', { ascending: false })
       .limit(30)

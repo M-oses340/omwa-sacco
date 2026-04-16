@@ -48,7 +48,7 @@ export default function RepaymentPosting() {
     setLoadingHistory(true)
     const { data } = await supabase
       .from('transactions')
-      .select('id, amount, reference, description, created_at, members(full_name, member_number)')
+      .select('id, amount, reference, description, created_at, members!transactions_member_id_fkey(full_name, member_number)')
       .eq('transaction_type', 'loan_repayment')
       .order('created_at', { ascending: false })
       .limit(30)

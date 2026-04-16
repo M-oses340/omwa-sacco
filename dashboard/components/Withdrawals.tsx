@@ -13,7 +13,7 @@ export default function Withdrawals() {
     setLoading(true)
     const { data } = await supabase
       .from('transactions')
-      .select('id, amount, status, reference, description, created_at, members(full_name, member_number, phone_number)')
+      .select('id, amount, status, reference, description, created_at, members!transactions_member_id_fkey(full_name, member_number, phone_number)')
       .eq('transaction_type', 'withdrawal')
       .eq('status', filter)
       .order('created_at', { ascending: false })

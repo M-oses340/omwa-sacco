@@ -63,37 +63,37 @@ export default function Loans() {
         />
       )}
 
-      <h2 className="text-xl font-semibold mb-4">Loans</h2>
+      <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Loans</h2>
       <div className="flex gap-2 mb-5 flex-wrap">
         {STATUS_TABS.map(s => (
           <button key={s} onClick={() => setFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors
-              ${filter === s ? 'bg-green-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'}`}>
+              ${filter === s ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-900 border dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
             {s} {counts[s] !== undefined ? `(${counts[s]})` : ''}
           </button>
         ))}
       </div>
 
       {loading ? <p className="text-gray-400 text-sm">Loading...</p> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase">
               <tr>{['Loan #', 'Member', 'Type', 'Principal', 'Outstanding', 'Monthly', 'Date', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}</tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {loans.map(l => (
-                <tr key={l.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelected(l)}>
-                  <td className="px-4 py-3 font-mono text-xs">{l.loan_number}</td>
+                <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer" onClick={() => setSelected(l)}>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{l.loan_number}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium">{(l.members as any)?.full_name}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{(l.members as any)?.full_name}</p>
                     <p className="text-xs text-gray-400">{(l.members as any)?.phone_number}</p>
                   </td>
-                  <td className="px-4 py-3 capitalize text-gray-500 text-xs">{l.loan_type?.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 font-medium">{fmt(l.principal)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmt(l.outstanding_balance)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmt(l.monthly_repayment)}</td>
+                  <td className="px-4 py-3 capitalize text-gray-500 dark:text-gray-400 text-xs">{l.loan_type?.replace(/_/g, ' ')}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{fmt(l.principal)}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmt(l.outstanding_balance)}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{fmt(l.monthly_repayment)}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{l.created_at?.split('T')[0]}</td>
                   <td className="px-4 py-3 flex gap-2" onClick={e => e.stopPropagation()}>
                     {l.status === 'pending' && (

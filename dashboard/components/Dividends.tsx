@@ -96,7 +96,7 @@ export default function Dividends() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-5">Dividends</h2>
+      <h2 className="text-xl font-semibold mb-5 text-gray-900 dark:text-gray-100">Dividends</h2>
 
       {toast && (
         <div className="fixed top-4 right-4 bg-green-600 text-white text-sm px-4 py-2 rounded-lg shadow z-50">
@@ -106,25 +106,23 @@ export default function Dividends() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Calculator */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-medium text-gray-700 mb-4">Declare Dividend</h3>
-
-          <div className="bg-blue-50 rounded-lg p-3 mb-4 text-xs text-blue-700">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Declare Dividend</h3>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4 text-xs text-blue-700 dark:text-blue-300">
             <p className="font-medium mb-0.5">Share Capital Summary</p>
             <p>{members.length} eligible members · Total shares: KES {totalShares.toLocaleString('en-KE', { maximumFractionDigits: 0 })}</p>
           </div>
-
           <div className="flex flex-col gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Financial Year</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Financial Year</label>
               <input type="number" value={year} onChange={e => setYear(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+                className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Total Dividend Pool (KES)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Total Dividend Pool (KES)</label>
               <input type="number" min="1" placeholder="e.g. 500000" value={pool}
                 onChange={e => { setPool(e.target.value); setPreview([]); setConfirmed(false) }}
-                className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+                className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
             <button onClick={calcPreview} disabled={!pool || parseFloat(pool) <= 0}
               className="bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
@@ -133,31 +131,30 @@ export default function Dividends() {
           </div>
         </div>
 
-        {/* Summary */}
         {preview.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-medium text-gray-700 mb-3">Distribution Preview</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Distribution Preview</h3>
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500">Pool</p>
-                <p className="font-bold text-green-700">KES {parseFloat(pool).toLocaleString('en-KE', { maximumFractionDigits: 0 })}</p>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Pool</p>
+                <p className="font-bold text-green-700 dark:text-green-400">KES {parseFloat(pool).toLocaleString('en-KE', { maximumFractionDigits: 0 })}</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500">Recipients</p>
-                <p className="font-bold text-green-700">{preview.length}</p>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Recipients</p>
+                <p className="font-bold text-green-700 dark:text-green-400">{preview.length}</p>
               </div>
             </div>
             <div className="max-h-48 overflow-y-auto space-y-1 mb-4 text-xs">
               {preview.slice(0, 20).map(m => (
-                <div key={m.member_id} className="flex justify-between py-1 border-b last:border-0">
-                  <span className="text-gray-600">{(m.members as any)?.full_name}</span>
-                  <span className="font-medium">KES {m.dividend.toLocaleString()}</span>
+                <div key={m.member_id} className="flex justify-between py-1 border-b dark:border-gray-700 last:border-0">
+                  <span className="text-gray-600 dark:text-gray-400">{(m.members as any)?.full_name}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">KES {m.dividend.toLocaleString()}</span>
                 </div>
               ))}
               {preview.length > 20 && <p className="text-gray-400 text-center py-1">+{preview.length - 20} more</p>}
             </div>
             {confirmed && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-xs text-yellow-800">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 mb-3 text-xs text-yellow-800 dark:text-yellow-300">
                 This will credit KES {totalDividend.toLocaleString()} to {preview.length} FOSA accounts. Click again to confirm.
               </div>
             )}
@@ -170,22 +167,21 @@ export default function Dividends() {
         )}
       </div>
 
-      {/* History */}
-      <h3 className="font-medium text-gray-700 mb-3">Dividend History</h3>
+      <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Dividend History</h3>
       {loadingHistory ? <p className="text-gray-400 text-sm">Loading...</p> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase">
               <tr>{['Date', 'Member', 'Amount', 'Reference'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}</tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {history.map(h => (
-                <tr key={h.id} className="hover:bg-gray-50">
+                <tr key={h.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   <td className="px-4 py-3 text-gray-400 text-xs">{h.created_at?.split('T')[0]}</td>
-                  <td className="px-4 py-3 font-medium">{(h.members as any)?.full_name}</td>
-                  <td className="px-4 py-3 font-semibold text-green-600">
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{(h.members as any)?.full_name}</td>
+                  <td className="px-4 py-3 font-semibold text-green-600 dark:text-green-400">
                     KES {parseFloat(h.amount).toLocaleString('en-KE', { maximumFractionDigits: 0 })}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{h.reference}</td>

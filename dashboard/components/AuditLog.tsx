@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const ACTION_COLOR: Record<string, string> = {
-  insert: 'bg-green-100 text-green-700',
-  update: 'bg-blue-100 text-blue-700',
-  delete: 'bg-red-100 text-red-700',
+  insert: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+  update: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400',
+  delete: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
 }
 
 export default function AuditLog() {
@@ -65,55 +65,54 @@ export default function AuditLog() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Audit Log</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Audit Log</h2>
         <button onClick={exportCsv}
-          className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+          className="text-xs border dark:border-gray-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
           ⬇ Export CSV
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap">
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          className="border dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+          className="border dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
         <select value={table} onChange={e => setTable(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          className="border dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">
           <option value="">All tables</option>
           {tables.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         <input placeholder="Search actor, table, record..." value={search} onChange={e => setSearch(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-green-500" />
+          className="border dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm w-56 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
         {(startDate || endDate || table || search) && (
           <button onClick={() => { setStartDate(''); setEndDate(''); setTable(''); setSearch('') }}
-            className="text-xs text-gray-400 hover:text-gray-600 px-2">Clear</button>
+            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-2">Clear</button>
         )}
       </div>
 
       {loading ? <p className="text-gray-400 text-sm">Loading...</p> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase sticky top-0">
               <tr>{['Timestamp', 'Actor', 'Action', 'Table', 'Record ID', 'Changes'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}</tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 align-top">
+                <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 align-top">
                   <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
                     {r.created_at?.replace('T', ' ').slice(0, 19)}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {(r.members as any)?.full_name ?? <span className="text-gray-400 italic">system</span>}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${ACTION_COLOR[r.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium uppercase ${ACTION_COLOR[r.action] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                       {r.action}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{r.table_name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{r.table_name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400 max-w-[120px] truncate">{r.record_id ?? '—'}</td>
                   <td className="px-4 py-3 max-w-xs">
                     <ChangeDiff old={r.old_data} next={r.new_data} />

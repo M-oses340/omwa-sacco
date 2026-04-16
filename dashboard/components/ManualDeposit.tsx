@@ -38,7 +38,7 @@ export default function ManualDeposit() {
     const { data } = await supabase
       .from('transactions')
       .select('id, amount, transaction_type, reference, description, created_at, members(full_name, member_number)')
-      .in('transaction_type', ['deposit', 'bosa_deposit', 'shares_deposit'])
+      .in('transaction_type', ['deposit', 'share_purchase'])
       .order('created_at', { ascending: false })
       .limit(30)
     setHistory(data ?? [])

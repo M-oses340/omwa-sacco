@@ -9,7 +9,7 @@ interface Props {
 
 type Tab = 'accounts' | 'loans' | 'transactions' | 'statement'
 
-const CREDIT_TYPES = new Set(['deposit', 'loan_disbursement', 'dividend', 'bosa_deposit', 'shares_deposit'])
+const CREDIT_TYPES = new Set(['deposit', 'loan_disbursement', 'dividend', 'share_purchase'])
 
 export default function MemberDetail({ member, onClose }: Props) {
   const [bosa, setBosa]   = useState<any>(null)

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 const TYPES = ['', 'deposit', 'withdrawal', 'loan_disbursement', 'loan_repayment', 'transfer', 'dividend']
 
-const CREDIT_TYPES = new Set(['deposit', 'loan_disbursement', 'dividend'])
+const CREDIT_TYPES = new Set(['deposit', 'loan_disbursement', 'dividend', 'share_purchase'])
 
 export default function Transactions() {
   const [txs, setTxs] = useState<any[]>([])

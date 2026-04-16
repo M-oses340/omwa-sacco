@@ -64,7 +64,7 @@ export async function postDeposit(params: {
 
       const { error: tErr } = await admin.from('transactions').insert({
         member_id: memberId, account_type: 'bosa',
-        transaction_type: accountType === 'bosa_savings' ? 'bosa_deposit' : 'shares_deposit',
+        transaction_type: accountType === 'bosa_savings' ? 'deposit' : 'share_purchase',
         amount, balance_before: current, balance_after: newBal,
         reference: ref,
         description: notes || `Manual ${method} deposit to ${ACCOUNT_LABELS[accountType]}`,

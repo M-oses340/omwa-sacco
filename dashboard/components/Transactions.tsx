@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const TYPES = ['', 'deposit', 'withdrawal', 'loan_disbursement', 'loan_repayment', 'transfer', 'dividend']
+const TYPES = ['', 'deposit', 'withdrawal', 'loan_disbursement', 'loan_repayment', 'transfer', 'dividend', 'share_purchase', 'scheduled_payment', 'paybill', 'airtime']
 
 const CREDIT_TYPES = new Set(['deposit', 'loan_disbursement', 'dividend', 'share_purchase'])
 
@@ -64,10 +64,16 @@ export default function Transactions() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Transactions</h2>
-        <button onClick={exportCsv}
-          className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
-          ⬇ Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button onClick={load}
+            className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+            ↻ Refresh
+          </button>
+          <button onClick={exportCsv}
+            className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
+            ⬇ Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

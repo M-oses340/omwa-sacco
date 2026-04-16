@@ -26,7 +26,7 @@ export async function postDeposit(params: {
   notes?: string
 }): Promise<{ ok: boolean; error?: string }> {
   const { memberId, memberName, accountType, amount, method, reference, notes } = params
-  const ref = reference || `MAN-${Date.now()}`
+  const ref = reference || `MAN-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
   try {
     if (accountType === 'fosa') {
@@ -131,7 +131,7 @@ export async function postRepayment(params: {
       member_id: memberId, account_type: 'bosa',
       transaction_type: 'loan_repayment',
       amount: repayAmt, balance_before: outstanding, balance_after: newOutstanding,
-      reference: reference || `REP-${Date.now()}`,
+      reference: reference || `REP-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       description: `Manual repayment (${method}) for ${loanNumber}`,
       status: 'completed', payment_method: method,
     })

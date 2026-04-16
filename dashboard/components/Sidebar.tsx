@@ -2,11 +2,15 @@
 import { supabase } from '@/lib/supabase'
 
 const NAV = [
-  { id: 'overview',     label: 'Overview',      icon: '📊' },
-  { id: 'members',      label: 'Members',        icon: '👥' },
-  { id: 'loans',        label: 'Loans',          icon: '💰' },
-  { id: 'transactions', label: 'Transactions',   icon: '🔄' },
-  { id: 'reports',      label: 'Reports',        icon: '📋' },
+  { id: 'overview',       label: 'Overview',       icon: '📊' },
+  { id: 'members',        label: 'Members',         icon: '👥' },
+  { id: 'loans',          label: 'Loans',           icon: '💰' },
+  { id: 'withdrawals',    label: 'Withdrawals',     icon: '💸' },
+  { id: 'transactions',   label: 'Transactions',    icon: '🔄' },
+  { id: 'dividends',      label: 'Dividends',       icon: '🎁' },
+  { id: 'notifications',  label: 'Notifications',   icon: '🔔' },
+  { id: 'reports',        label: 'Reports',         icon: '📋' },
+  { id: 'settings',       label: 'Settings',        icon: '⚙️' },
 ]
 
 export default function Sidebar({ page, setPage, member }: { page: string; setPage: (p: string) => void; member: any }) {

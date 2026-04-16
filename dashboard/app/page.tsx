@@ -8,6 +8,10 @@ import Members from '@/components/Members'
 import Loans from '@/components/Loans'
 import Reports from '@/components/Reports'
 import Transactions from '@/components/Transactions'
+import Withdrawals from '@/components/Withdrawals'
+import Settings from '@/components/Settings'
+import Notifications from '@/components/Notifications'
+import Dividends from '@/components/Dividends'
 import type { Session } from '@supabase/supabase-js'
 
 const ADMIN_ROLES = ['admin', 'treasurer', 'chairman', 'secretary']
@@ -53,8 +57,12 @@ export default function Home() {
     overview: <Overview />,
     members: <Members />,
     loans: <Loans />,
+    withdrawals: <Withdrawals />,
     transactions: <Transactions />,
+    dividends: <Dividends />,
+    notifications: <Notifications />,
     reports: <Reports />,
+    settings: <Settings />,
   }
 
   return (

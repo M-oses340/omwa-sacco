@@ -129,6 +129,7 @@ export default function MemberDetail({ member, onClose }: Props) {
               ))}
             </div>
 
+            {tab === 'accounts' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
                   <p className="text-xs text-blue-500 dark:text-blue-400 font-medium mb-2">BOSA Account</p>

@@ -84,7 +84,7 @@ export default function ManualDeposit() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-5">Manual Deposit</h2>
+      <h2 className="text-xl font-semibold mb-5 text-gray-900 dark:text-gray-100">Manual Deposit</h2>
 
       {toast && (
         <div className={`fixed top-4 right-4 text-white text-sm px-4 py-2 rounded-lg shadow z-50 ${toast.ok ? 'bg-green-600' : 'bg-red-600'}`}>
@@ -94,33 +94,31 @@ export default function ManualDeposit() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-medium text-gray-700 mb-4">Deposit Details</h3>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Deposit Details</h3>
           <form onSubmit={submit} className="flex flex-col gap-3">
-
-            {/* Member search */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Member</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Member</label>
               {selectedMember ? (
-                <div className="flex items-center justify-between border rounded-lg px-3 py-2 bg-green-50 border-green-200">
+                <div className="flex items-center justify-between border dark:border-gray-700 rounded-lg px-3 py-2 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                   <div>
-                    <p className="text-sm font-medium">{selectedMember.full_name}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedMember.full_name}</p>
                     <p className="text-xs text-gray-400">{selectedMember.member_number} · {selectedMember.phone_number}</p>
                   </div>
                   <button type="button" onClick={() => { setSelectedMember(null); setSearch('') }}
-                    className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm">✕</button>
                 </div>
               ) : (
                 <div className="relative">
                   <input placeholder="Search member..." value={search} onChange={e => setSearch(e.target.value)}
-                    className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
                   {search && filtered.length > 0 && (
-                    <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
                       {filtered.slice(0, 8).map(m => (
                         <button key={m.id} type="button"
                           onClick={() => { setSelectedMember(m); setSearch('') }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm border-b last:border-0">
-                          <p className="font-medium">{m.full_name}</p>
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm border-b dark:border-gray-700 last:border-0">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{m.full_name}</p>
                           <p className="text-xs text-gray-400">{m.member_number}</p>
                         </button>
                       ))}
@@ -130,56 +128,48 @@ export default function ManualDeposit() {
               )}
             </div>
 
-            {/* Account type */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Account</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Account</label>
               <div className="grid grid-cols-3 gap-2">
                 {(Object.entries(ACCOUNT_LABELS) as [AccountType, string][]).map(([k, v]) => (
                   <button key={k} type="button" onClick={() => setAccountType(k)}
                     className={`py-2 px-2 rounded-lg text-xs font-medium border transition-colors text-center
-                      ${accountType === k ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      ${accountType === k ? 'bg-green-600 text-white border-green-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                     {v}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Amount */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Amount (KES)</label>
-              <input type="number" min="1" required placeholder="0.00" value={amount}
-                onChange={e => setAmount(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Amount (KES)</label>
+              <input type="number" min="1" required placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)}
+                className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
 
-            {/* Payment method */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Payment Method</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Payment Method</label>
               <div className="flex gap-2 flex-wrap">
                 {(['cash', 'cheque', 'bank_transfer', 'mpesa'] as PaymentMethod[]).map(m => (
                   <button key={m} type="button" onClick={() => setMethod(m)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize border transition-colors
-                      ${method === m ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      ${method === m ? 'bg-green-600 text-white border-green-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                     {m.replace('_', ' ')}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Reference */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Reference (optional)</label>
-              <input placeholder="Cheque no., M-Pesa code..." value={reference}
-                onChange={e => setReference(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Reference (optional)</label>
+              <input placeholder="Cheque no., M-Pesa code..." value={reference} onChange={e => setReference(e.target.value)}
+                className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
 
-            {/* Notes */}
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Notes (optional)</label>
-              <input placeholder="e.g. Monthly contribution" value={notes}
-                onChange={e => setNotes(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-500" />
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Notes (optional)</label>
+              <input placeholder="e.g. Monthly contribution" value={notes} onChange={e => setNotes(e.target.value)}
+                className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
             </div>
 
             <button type="submit" disabled={submitting || !selectedMember || !amount}
@@ -190,19 +180,19 @@ export default function ManualDeposit() {
         </div>
 
         {/* Recent deposits */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-medium text-gray-700 mb-4">Recent Deposits</h3>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Recent Deposits</h3>
           {loadingHistory ? <p className="text-gray-400 text-sm">Loading...</p> : (
             <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
               {history.length === 0 && <p className="text-gray-400 text-sm">No deposits yet</p>}
               {history.map(h => (
-                <div key={h.id} className="flex items-center justify-between border rounded-lg px-3 py-2.5">
+                <div key={h.id} className="flex items-center justify-between border dark:border-gray-700 rounded-lg px-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{(h.members as any)?.full_name}</p>
+                    <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">{(h.members as any)?.full_name}</p>
                     <p className="text-xs text-gray-400">{h.created_at?.split('T')[0]} · {h.reference}</p>
                     {h.description && <p className="text-xs text-gray-400 truncate">{h.description}</p>}
                   </div>
-                  <p className="text-sm font-semibold text-green-600 ml-3 shrink-0">
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400 ml-3 shrink-0">
                     +KES {parseFloat(h.amount).toLocaleString('en-KE', { maximumFractionDigits: 0 })}
                   </p>
                 </div>

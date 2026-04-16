@@ -9,12 +9,12 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  pending:   'bg-yellow-100 text-yellow-700',
-  approved:  'bg-purple-100 text-purple-700',
-  disbursed: 'bg-blue-100 text-blue-700',
-  repaid:    'bg-green-100 text-green-700',
-  defaulted: 'bg-red-100 text-red-700',
-  rejected:  'bg-gray-100 text-gray-600',
+  pending:   'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400',
+  approved:  'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400',
+  disbursed: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400',
+  repaid:    'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+  defaulted: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
+  rejected:  'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
 }
 
 export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
@@ -67,8 +67,8 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
     : 0
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end" onClick={onClose}>
-      <div className="bg-white h-full w-full max-w-2xl shadow-2xl overflow-y-auto"
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-start justify-end" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 h-full w-full max-w-2xl shadow-2xl overflow-y-auto"
         onClick={e => e.stopPropagation()}>
 
         {toast && (
@@ -78,17 +78,17 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-lg font-mono">{loan.loan_number}</h2>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[loan.status] ?? 'bg-gray-100 text-gray-600'}`}>
+              <h2 className="font-semibold text-lg font-mono text-gray-900 dark:text-gray-100">{loan.loan_number}</h2>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[loan.status] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                 {loan.status}
               </span>
             </div>
             <p className="text-xs text-gray-400 mt-0.5 capitalize">{loan.loan_type?.replace(/_/g, ' ')} · {member?.full_name}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-xl leading-none">✕</button>
         </div>
 
         <div className="p-6">
@@ -100,7 +100,7 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
                 {acting === 'approve' ? 'Approving...' : 'Approve Loan'}
               </button>
               <button disabled={!!acting} onClick={() => act('reject')}
-                className="flex-1 bg-red-100 text-red-600 rounded-lg py-2 text-sm font-medium hover:bg-red-200 disabled:opacity-50">
+                className="flex-1 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg py-2 text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/60 disabled:opacity-50">
                 {acting === 'reject' ? 'Rejecting...' : 'Reject'}
               </button>
             </div>
@@ -114,12 +114,11 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="flex gap-1 mb-5 border-b">
+            <div className="flex gap-1 mb-5 border-b dark:border-gray-800">
             {(['summary', 'schedule', 'repayments'] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors -mb-px
-                  ${tab === t ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                  ${tab === t ? 'border-green-600 text-green-700 dark:text-green-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                 {t}
               </button>
             ))}
@@ -130,44 +129,43 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Principal',    value: fmt(loan.principal) },
-                  { label: 'Outstanding',  value: fmt(loan.outstanding_balance) },
-                  { label: 'Monthly',      value: fmt(loan.monthly_repayment) },
+                  { label: 'Principal',       value: fmt(loan.principal) },
+                  { label: 'Outstanding',     value: fmt(loan.outstanding_balance) },
+                  { label: 'Monthly',         value: fmt(loan.monthly_repayment) },
                   { label: 'Total Repayable', value: fmt(loan.total_repayable) },
-                  { label: 'Duration',     value: `${loan.duration_months} months` },
-                  { label: 'Interest Rate', value: `${loan.interest_rate ?? 0}% p.a.` },
-                  { label: 'Applied',      value: loan.created_at?.split('T')[0] },
-                  { label: 'Due Date',     value: loan.due_date ?? '—' },
+                  { label: 'Duration',        value: `${loan.duration_months} months` },
+                  { label: 'Interest Rate',   value: `${loan.interest_rate ?? 0}% p.a.` },
+                  { label: 'Applied',         value: loan.created_at?.split('T')[0] },
+                  { label: 'Due Date',        value: loan.due_date ?? '—' },
                 ].map(r => (
-                  <div key={r.label} className="bg-gray-50 rounded-lg p-3">
+                  <div key={r.label} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                     <p className="text-xs text-gray-400">{r.label}</p>
-                    <p className="font-medium text-sm mt-0.5">{r.value}</p>
+                    <p className="font-medium text-sm mt-0.5 text-gray-900 dark:text-gray-100">{r.value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Repayment progress */}
               {['disbursed', 'repaid'].includes(loan.status) && (
-                <div className="bg-white border rounded-xl p-4">
-                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-4">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
                     <span>Repayment Progress</span>
                     <span>{progressPct.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full bg-green-500 rounded-full transition-all"
                       style={{ width: `${progressPct}%` }} />
                   </div>
                   <div className="flex justify-between text-xs mt-2">
-                    <span className="text-green-600">Paid: {fmt(paidAmount)}</span>
+                    <span className="text-green-600 dark:text-green-400">Paid: {fmt(paidAmount)}</span>
                     <span className="text-gray-400">Remaining: {fmt(loan.outstanding_balance)}</span>
                   </div>
                 </div>
               )}
 
               {loan.purpose && (
-                <div className="bg-gray-50 rounded-lg p-3">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                   <p className="text-xs text-gray-400 mb-1">Purpose</p>
-                  <p className="text-sm">{loan.purpose}</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100">{loan.purpose}</p>
                 </div>
               )}
             </div>
@@ -181,19 +179,19 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
                 : (
                   <div className="overflow-auto max-h-[60vh]">
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50 text-gray-500 uppercase sticky top-0">
+                      <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase sticky top-0">
                         <tr>{['Month', 'Payment', 'Principal', 'Interest', 'Balance'].map(h => (
                           <th key={h} className="px-3 py-2 text-left">{h}</th>
                         ))}</tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                         {schedule.map((row: any) => (
-                          <tr key={row.month} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium">{row.month}</td>
-                            <td className="px-3 py-2">{fmt(row.payment)}</td>
-                            <td className="px-3 py-2 text-blue-600">{fmt(row.principal)}</td>
-                            <td className="px-3 py-2 text-orange-500">{fmt(row.interest)}</td>
-                            <td className="px-3 py-2 text-gray-500">{fmt(row.balance)}</td>
+                          <tr key={row.month} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                            <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{row.month}</td>
+                            <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{fmt(row.payment)}</td>
+                            <td className="px-3 py-2 text-blue-600 dark:text-blue-400">{fmt(row.principal)}</td>
+                            <td className="px-3 py-2 text-orange-500 dark:text-orange-400">{fmt(row.interest)}</td>
+                            <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{fmt(row.balance)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -210,13 +208,13 @@ export default function LoanDetail({ loan, onClose, onRefresh }: Props) {
               : (
                 <div className="space-y-2">
                   {repayments.map(r => (
-                    <div key={r.id} className="flex items-center justify-between border rounded-lg px-4 py-3">
+                    <div key={r.id} className="flex items-center justify-between border dark:border-gray-700 rounded-lg px-4 py-3">
                       <div>
-                        <p className="text-sm font-medium">{fmt(r.amount)}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{fmt(r.amount)}</p>
                         <p className="text-xs text-gray-400">{r.created_at?.split('T')[0]} · {r.reference}</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        r.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        r.status === 'completed' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400'}`}>
                         {r.status}
                       </span>
                     </div>

@@ -139,8 +139,8 @@ export default function BulkDeposit() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-1">Bulk Deposit</h2>
-      <p className="text-gray-500 text-sm mb-5">Upload a CSV to post multiple deposits at once — payroll deductions, group contributions, etc.</p>
+      <h2 className="text-xl font-semibold mb-1 text-gray-900 dark:text-gray-100">Bulk Deposit</h2>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-5">Upload a CSV to post multiple deposits at once — payroll deductions, group contributions, etc.</p>
 
       {toast && (
         <div className={`fixed top-4 right-4 text-white text-sm px-4 py-2 rounded-lg shadow z-50 ${toast.ok ? 'bg-green-600' : 'bg-red-600'}`}>
@@ -148,23 +148,21 @@ export default function BulkDeposit() {
         </div>
       )}
 
-      {/* Upload area */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 mb-5">
         <div className="flex items-center gap-4 flex-wrap">
           <label className="cursor-pointer bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-green-700">
             Choose CSV File
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={onFile} />
           </label>
           <button onClick={downloadTemplate}
-            className="text-sm border rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50">
+            className="text-sm border dark:border-gray-700 rounded-lg px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
             ⬇ Download Template
           </button>
           {rows.length > 0 && !processing && (
             <button onClick={() => { setRows([]); setDone(false) }}
-              className="text-sm text-gray-400 hover:text-gray-600">Clear</button>
+              className="text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Clear</button>
           )}
         </div>
-
         <div className="mt-4 text-xs text-gray-400 space-y-0.5">
           <p>CSV columns: <span className="font-mono">member_number, account, amount, reference (optional), notes (optional)</span></p>
           <p>Account values: <span className="font-mono">fosa</span> · <span className="font-mono">bosa_savings</span> · <span className="font-mono">bosa_shares</span></p>
@@ -176,15 +174,15 @@ export default function BulkDeposit() {
         <>
           <div className="flex items-center justify-between mb-3">
             <div className="flex gap-3 text-sm">
-              <span className="text-gray-600">{rows.length} rows</span>
-              <span className="text-green-600">KES {totalAmt.toLocaleString('en-KE', { maximumFractionDigits: 0 })} total</span>
+              <span className="text-gray-600 dark:text-gray-400">{rows.length} rows</span>
+              <span className="text-green-600 dark:text-green-400">KES {totalAmt.toLocaleString('en-KE', { maximumFractionDigits: 0 })} total</span>
               {errCount > 0 && <span className="text-red-500">{errCount} errors</span>}
-              {okCount > 0 && <span className="text-green-600">{okCount} posted</span>}
+              {okCount > 0 && <span className="text-green-600 dark:text-green-400">{okCount} posted</span>}
             </div>
             <div className="flex gap-2">
               {done && (
                 <button onClick={exportResults}
-                  className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+                  className="text-xs border dark:border-gray-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                   ⬇ Export Results
                 </button>
               )}
@@ -198,30 +196,32 @@ export default function BulkDeposit() {
           </div>
 
           {processing && (
-            <div className="h-1.5 bg-gray-100 rounded-full mb-4 overflow-hidden">
+            <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mb-4 overflow-hidden">
               <div className="h-full bg-green-500 transition-all rounded-full"
                 style={{ width: `${(progress / rows.length) * 100}%` }} />
             </div>
           )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase">
                 <tr>{['Member #', 'Name', 'Account', 'Amount', 'Reference', 'Status'].map(h => (
                   <th key={h} className="px-4 py-3 text-left">{h}</th>
                 ))}</tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                 {rows.map((r, i) => (
-                  <tr key={i} className={r._status === 'error' ? 'bg-red-50' : r._status === 'ok' ? 'bg-green-50' : ''}>
-                    <td className="px-4 py-2.5 font-mono text-xs">{r.member_number}</td>
-                    <td className="px-4 py-2.5 text-gray-700">{r._memberName ?? <span className="text-red-400 italic">not found</span>}</td>
-                    <td className="px-4 py-2.5 text-xs capitalize text-gray-500">{r.account.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-2.5 font-medium">KES {r.amount.toLocaleString('en-KE', { maximumFractionDigits: 0 })}</td>
+                  <tr key={i} className={
+                    r._status === 'error' ? 'bg-red-50 dark:bg-red-900/20' :
+                    r._status === 'ok'    ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                    <td className="px-4 py-2.5 font-mono text-xs text-gray-500 dark:text-gray-400">{r.member_number}</td>
+                    <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">{r._memberName ?? <span className="text-red-400 italic">not found</span>}</td>
+                    <td className="px-4 py-2.5 text-xs capitalize text-gray-500 dark:text-gray-400">{r.account.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">KES {r.amount.toLocaleString('en-KE', { maximumFractionDigits: 0 })}</td>
                     <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{r.reference ?? '—'}</td>
                     <td className="px-4 py-2.5">
-                      {r._status === 'ok' && <span className="text-xs text-green-600 font-medium">✓ Posted</span>}
-                      {r._status === 'error' && <span className="text-xs text-red-500">{r._error}</span>}
+                      {r._status === 'ok'      && <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Posted</span>}
+                      {r._status === 'error'   && <span className="text-xs text-red-500">{r._error}</span>}
                       {r._status === 'pending' && <span className="text-xs text-gray-400">Pending</span>}
                     </td>
                   </tr>

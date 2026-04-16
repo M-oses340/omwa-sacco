@@ -90,17 +90,17 @@ export default function MemberDetail({ member, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end" onClick={onClose}>
-      <div className="bg-white h-full w-full max-w-2xl shadow-2xl overflow-y-auto"
+    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-start justify-end" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 h-full w-full max-w-2xl shadow-2xl overflow-y-auto"
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <div>
-            <h2 className="font-semibold text-lg">{member.full_name}</h2>
+            <h2 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{member.full_name}</h2>
             <p className="text-xs text-gray-400 font-mono">{member.member_number} · {member.phone_number}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-xl leading-none">✕</button>
         </div>
 
         {loading ? (
@@ -119,25 +119,22 @@ export default function MemberDetail({ member, onClose }: Props) {
               </span>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-1 mb-5 border-b">
+            <div className="flex gap-1 mb-5 border-b dark:border-gray-800">
               {(['accounts', 'loans', 'transactions', 'statement'] as Tab[]).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors -mb-px
-                    ${tab === t ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                    ${tab === t ? 'border-green-600 text-green-700 dark:text-green-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                   {t}
                 </button>
               ))}
             </div>
 
-            {/* Accounts */}
-            {tab === 'accounts' && (
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                  <p className="text-xs text-blue-500 font-medium mb-2">BOSA Account</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
+                  <p className="text-xs text-blue-500 dark:text-blue-400 font-medium mb-2">BOSA Account</p>
                   {bosa ? (
                     <>
-                      <p className="font-mono text-xs text-gray-500 mb-3">{bosa.account_number}</p>
+                      <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mb-3">{bosa.account_number}</p>
                       <div className="space-y-1.5">
                         <Row label="Savings"         value={fmt(bosa.savings_balance)} />
                         <Row label="Shares"          value={fmt(bosa.shares_balance)} />
@@ -146,11 +143,11 @@ export default function MemberDetail({ member, onClose }: Props) {
                     </>
                   ) : <p className="text-xs text-gray-400">No BOSA account</p>}
                 </div>
-                <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-                  <p className="text-xs text-green-600 font-medium mb-2">FOSA Account</p>
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800">
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-2">FOSA Account</p>
                   {fosa ? (
                     <>
-                      <p className="font-mono text-xs text-gray-500 mb-3">{fosa.account_number}</p>
+                      <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mb-3">{fosa.account_number}</p>
                       <div className="space-y-1.5">
                         <Row label="Balance" value={fmt(fosa.balance)} />
                         <Row label="Salary"  value={fmt(fosa.salary_amount)} />
@@ -161,21 +158,20 @@ export default function MemberDetail({ member, onClose }: Props) {
               </div>
             )}
 
-            {/* Loans */}
             {tab === 'loans' && (
               <div className="space-y-3">
                 {loans.length === 0 && <p className="text-gray-400 text-sm">No loans</p>}
                 {loans.map(l => (
-                  <div key={l.id} className="border rounded-xl p-4">
+                  <div key={l.id} className="border dark:border-gray-700 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-xs text-gray-500">{l.loan_number}</span>
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{l.loan_number}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(l.status)}`}>{l.status}</span>
                     </div>
-                    <p className="font-medium capitalize text-sm mb-2">{l.loan_type?.replace(/_/g, ' ')}</p>
+                    <p className="font-medium capitalize text-sm mb-2 text-gray-900 dark:text-gray-100">{l.loan_type?.replace(/_/g, ' ')}</p>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div><p className="text-gray-400">Principal</p><p className="font-medium">{fmt(l.principal)}</p></div>
-                      <div><p className="text-gray-400">Outstanding</p><p className="font-medium">{fmt(l.outstanding_balance)}</p></div>
-                      <div><p className="text-gray-400">Monthly</p><p className="font-medium">{fmt(l.monthly_repayment)}</p></div>
+                      <div><p className="text-gray-400">Principal</p><p className="font-medium text-gray-900 dark:text-gray-100">{fmt(l.principal)}</p></div>
+                      <div><p className="text-gray-400">Outstanding</p><p className="font-medium text-gray-900 dark:text-gray-100">{fmt(l.outstanding_balance)}</p></div>
+                      <div><p className="text-gray-400">Monthly</p><p className="font-medium text-gray-900 dark:text-gray-100">{fmt(l.monthly_repayment)}</p></div>
                     </div>
                     {l.due_date && <p className="text-xs text-gray-400 mt-2">Due: {l.due_date}</p>}
                   </div>
@@ -183,18 +179,17 @@ export default function MemberDetail({ member, onClose }: Props) {
               </div>
             )}
 
-            {/* Transactions */}
             {tab === 'transactions' && (
               <div className="space-y-1">
                 {txs.length === 0 && <p className="text-gray-400 text-sm">No transactions</p>}
                 {[...txs].reverse().map(t => (
-                  <div key={t.id} className="flex items-center justify-between py-2.5 border-b last:border-0">
+                  <div key={t.id} className="flex items-center justify-between py-2.5 border-b dark:border-gray-800 last:border-0">
                     <div>
-                      <p className="text-sm capitalize">{t.transaction_type?.replace(/_/g, ' ')}</p>
+                      <p className="text-sm capitalize text-gray-900 dark:text-gray-100">{t.transaction_type?.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-gray-400">{t.created_at?.split('T')[0]} · {t.reference}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${CREDIT_TYPES.has(t.transaction_type) ? 'text-green-600' : 'text-red-500'}`}>
+                      <p className={`text-sm font-semibold ${CREDIT_TYPES.has(t.transaction_type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                         {CREDIT_TYPES.has(t.transaction_type) ? '+' : '-'}{fmt(t.amount)}
                       </p>
                       <span className={`text-xs ${
@@ -206,16 +201,15 @@ export default function MemberDetail({ member, onClose }: Props) {
               </div>
             )}
 
-            {/* Statement */}
             {tab === 'statement' && (
               <div>
                 <div className="flex gap-2 mb-4">
                   <button onClick={printStatement}
-                    className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+                    className="text-xs border dark:border-gray-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                     🖨 Print
                   </button>
                   <button onClick={exportStatement}
-                    className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+                    className="text-xs border dark:border-gray-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                     ⬇ Export CSV
                   </button>
                 </div>
@@ -224,25 +218,25 @@ export default function MemberDetail({ member, onClose }: Props) {
                 ) : (
                   <div className="overflow-auto max-h-[55vh]">
                     <table className="w-full text-xs">
-                      <thead className="bg-gray-50 text-gray-500 uppercase sticky top-0">
+                      <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase sticky top-0">
                         <tr>{['Date', 'Type', 'Reference', 'Debit', 'Credit', 'Balance', 'Status'].map(h => (
                           <th key={h} className="px-3 py-2 text-left whitespace-nowrap">{h}</th>
                         ))}</tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                         {statement.map(t => (
-                          <tr key={t.id} className="hover:bg-gray-50">
+                          <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                             <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{t.created_at?.split('T')[0]}</td>
-                            <td className="px-3 py-2 capitalize whitespace-nowrap">{t.transaction_type?.replace(/_/g, ' ')}</td>
+                            <td className="px-3 py-2 capitalize whitespace-nowrap text-gray-900 dark:text-gray-100">{t.transaction_type?.replace(/_/g, ' ')}</td>
                             <td className="px-3 py-2 font-mono text-gray-400">{t.reference ?? '—'}</td>
-                            <td className="px-3 py-2 text-red-500">{!t.isCredit ? fmt(t.amount) : ''}</td>
-                            <td className="px-3 py-2 text-green-600">{t.isCredit ? fmt(t.amount) : ''}</td>
-                            <td className="px-3 py-2 font-medium">{fmt(t.runningBalance)}</td>
+                            <td className="px-3 py-2 text-red-500 dark:text-red-400">{!t.isCredit ? fmt(t.amount) : ''}</td>
+                            <td className="px-3 py-2 text-green-600 dark:text-green-400">{t.isCredit ? fmt(t.amount) : ''}</td>
+                            <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{fmt(t.runningBalance)}</td>
                             <td className="px-3 py-2">
                               <span className={`px-1.5 py-0.5 rounded text-xs ${
-                                t.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                t.status === 'pending'   ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-red-100 text-red-700'}`}>{t.status}</span>
+                                t.status === 'completed' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+                                t.status === 'pending'   ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' :
+                                'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'}`}>{t.status}</span>
                             </td>
                           </tr>
                         ))}
@@ -273,9 +267,9 @@ function fmt(n: any) {
 }
 
 function statusColor(s: string) {
-  return s === 'disbursed' ? 'bg-blue-100 text-blue-700' :
-         s === 'repaid'    ? 'bg-green-100 text-green-700' :
-         s === 'approved'  ? 'bg-purple-100 text-purple-700' :
-         s === 'pending'   ? 'bg-yellow-100 text-yellow-700' :
-         'bg-red-100 text-red-700'
+  return s === 'disbursed' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' :
+         s === 'repaid'    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+         s === 'approved'  ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' :
+         s === 'pending'   ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' :
+         'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'
 }

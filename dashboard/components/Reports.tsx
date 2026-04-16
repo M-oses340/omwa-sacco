@@ -47,17 +47,17 @@ export default function Reports() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-5">Reports</h2>
+      <h2 className="text-xl font-semibold mb-5 text-gray-900 dark:text-gray-100">Reports</h2>
       <div className="flex gap-4 mb-5 flex-wrap">
         <select value={selected} onChange={e => { setSelected(e.target.value); setResult(null) }}
-          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">
           {REPORTS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
         </select>
         {report.dateFilter && <>
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+            className="border dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
         </>}
         <button onClick={run} disabled={loading}
           className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
@@ -68,31 +68,31 @@ export default function Reports() {
       {result?.summary && (
         <div className="flex gap-3 mb-4 flex-wrap">
           {Object.entries(result.summary).map(([k, v]) => (
-            <div key={k} className="bg-green-50 border border-green-100 rounded-lg px-4 py-2">
-              <p className="text-xs text-green-600 capitalize">{k.replace(/_/g, ' ')}</p>
-              <p className="font-bold text-green-800">{typeof v === 'number' ? v.toLocaleString() : String(v)}</p>
+            <div key={k} className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg px-4 py-2">
+              <p className="text-xs text-green-600 dark:text-green-400 capitalize">{k.replace(/_/g, ' ')}</p>
+              <p className="font-bold text-green-800 dark:text-green-300">{typeof v === 'number' ? v.toLocaleString() : String(v)}</p>
             </div>
           ))}
         </div>
       )}
 
       {result?.data && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto max-h-[60vh]">
-          <div className="flex justify-end px-3 py-2 border-b">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-auto max-h-[60vh]">
+          <div className="flex justify-end px-3 py-2 border-b dark:border-gray-800">
             <button onClick={() => exportCsv(cols, result.data)}
-              className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+              className="text-xs border dark:border-gray-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
               ⬇ Export CSV
             </button>
           </div>
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 text-gray-500 uppercase sticky top-0">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase sticky top-0">
               <tr>{cols.map(c => <th key={c} className="px-3 py-2 text-left whitespace-nowrap">{c.replace(/_/g, ' ')}</th>)}</tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {result.data.map((row: any, i: number) => (
-                <tr key={i} className="hover:bg-gray-50">
+                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   {cols.map(c => (
-                    <td key={c} className="px-3 py-2 whitespace-nowrap text-gray-700">
+                    <td key={c} className="px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">
                       {typeof row[c] === 'object' ? JSON.stringify(row[c]) : String(row[c] ?? '—')}
                     </td>
                   ))}

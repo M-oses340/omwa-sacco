@@ -51,9 +51,9 @@ export default function Members() {
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Members</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Members</h2>
         <input placeholder="Search name, number, phone..." value={search} onChange={e => setSearch(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-green-500" />
+          className="border dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" />
       </div>
 
       {/* Status filter tabs */}
@@ -61,33 +61,33 @@ export default function Members() {
         {(['all', 'active', 'pending', 'suspended'] as const).map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors
-              ${statusFilter === s ? 'bg-green-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'}`}>
+              ${statusFilter === s ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-900 border dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
             {s} ({counts[s]})
           </button>
         ))}
       </div>
 
       {loading ? <p className="text-gray-400 text-sm">Loading...</p> : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs uppercase">
               <tr>{['#', 'Name', 'Phone', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}</tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {filtered.map(m => (
-                <tr key={m.id} className="hover:bg-gray-50 cursor-pointer"
+                <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer"
                   onClick={() => setSelected(m)}>
-                  <td className="px-4 py-3 font-mono text-xs">{m.member_number}</td>
-                  <td className="px-4 py-3 font-medium">{m.full_name}</td>
-                  <td className="px-4 py-3 text-gray-500">{m.phone_number}</td>
-                  <td className="px-4 py-3 capitalize text-gray-500">{m.role}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-gray-400">{m.member_number}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{m.full_name}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{m.phone_number}</td>
+                  <td className="px-4 py-3 capitalize text-gray-500 dark:text-gray-400">{m.role}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      m.status === 'active' ? 'bg-green-100 text-green-700' :
-                      m.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'}`}>{m.status}</span>
+                      m.status === 'active'    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+                      m.status === 'pending'   ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' :
+                      'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'}`}>{m.status}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{m.created_at?.split('T')[0]}</td>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -97,11 +97,11 @@ export default function Members() {
                     )}
                     {m.status === 'active' && (
                       <button onClick={() => updateStatus(m.id, 'suspended')}
-                        className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">Suspend</button>
+                        className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-1 rounded hover:bg-red-200">Suspend</button>
                     )}
                     {m.status === 'suspended' && (
                       <button onClick={() => updateStatus(m.id, 'active')}
-                        className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded hover:bg-green-200">Reinstate</button>
+                        className="text-xs bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 px-2 py-1 rounded hover:bg-green-200">Reinstate</button>
                     )}
                   </td>
                 </tr>

@@ -8,10 +8,10 @@ const NAV = [
   { id: 'loans',          label: 'Loans',            icon: '💰', badge: 'pendingLoans' },
   { id: 'withdrawals',    label: 'Withdrawals',      icon: '💸', badge: 'pendingWithdrawals' },
   { id: 'transactions',   label: 'Transactions',     icon: '🔄' },
-  { id: 'manual_deposit',   label: 'Manual Deposit',    icon: '💵' },
-  { id: 'bulk_deposit',     label: 'Bulk Deposit',       icon: '📥' },
-  { id: 'repayments',       label: 'Repayment Posting',  icon: '🔁' },
-  { id: 'salary',           label: 'Salary',             icon: '🏦' },
+  { id: 'manual_deposit', label: 'Manual Deposit',   icon: '💵' },
+  { id: 'bulk_deposit',   label: 'Bulk Deposit',     icon: '📥' },
+  { id: 'repayments',     label: 'Repayment Posting',icon: '🔁' },
+  { id: 'salary',         label: 'Salary',           icon: '🏦' },
   { id: 'dividends',      label: 'Dividends',        icon: '🎁' },
   { id: 'notifications',  label: 'Notifications',    icon: '🔔' },
   { id: 'reports',        label: 'Reports',          icon: '📋' },
@@ -29,22 +29,18 @@ export default function Sidebar({ page, setPage, member }: { page: string; setPa
         supabase.from('transactions').select('id', { count: 'exact', head: true })
           .eq('transaction_type', 'withdrawal').eq('status', 'pending'),
       ])
-      setBadges({
-        pendingLoans: loans.count ?? 0,
-        pendingWithdrawals: withdrawals.count ?? 0,
-      })
+      setBadges({ pendingLoans: loans.count ?? 0, pendingWithdrawals: withdrawals.count ?? 0 })
     }
     loadBadges()
-    // Refresh every 60s
     const interval = setInterval(loadBadges, 60_000)
     return () => clearInterval(interval)
   }, [])
 
   return (
-    <aside className="w-56 bg-green-800 text-white flex flex-col h-full">
-      <div className="p-5 border-b border-green-700">
+    <aside className="w-56 bg-green-800 dark:bg-gray-900 dark:border-r dark:border-gray-800 text-white flex flex-col h-full">
+      <div className="p-5 border-b border-green-700 dark:border-gray-800">
         <h1 className="font-bold text-lg">Omwa Sacco</h1>
-        <p className="text-green-300 text-xs mt-1 capitalize">{member?.role}</p>
+        <p className="text-green-300 dark:text-gray-400 text-xs mt-1 capitalize">{member?.role}</p>
       </div>
       <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
         {NAV.map(n => {
@@ -52,7 +48,9 @@ export default function Sidebar({ page, setPage, member }: { page: string; setPa
           return (
             <button key={n.id} onClick={() => setPage(n.id)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors
-                ${page === n.id ? 'bg-green-600 font-medium' : 'hover:bg-green-700'}`}>
+                ${page === n.id
+                  ? 'bg-green-600 dark:bg-green-700 font-medium'
+                  : 'hover:bg-green-700 dark:hover:bg-gray-800'}`}>
               <span>{n.icon}</span>
               <span className="flex-1">{n.label}</span>
               {count > 0 && (
@@ -64,10 +62,10 @@ export default function Sidebar({ page, setPage, member }: { page: string; setPa
           )
         })}
       </nav>
-      <div className="p-4 border-t border-green-700">
-        <p className="text-xs text-green-300 truncate mb-2">{member?.full_name}</p>
+      <div className="p-4 border-t border-green-700 dark:border-gray-800">
+        <p className="text-xs text-green-300 dark:text-gray-400 truncate mb-2">{member?.full_name}</p>
         <button onClick={() => supabase.auth.signOut()}
-          className="text-xs text-green-300 hover:text-white">Sign out</button>
+          className="text-xs text-green-300 dark:text-gray-400 hover:text-white">Sign out</button>
       </div>
     </aside>
   )

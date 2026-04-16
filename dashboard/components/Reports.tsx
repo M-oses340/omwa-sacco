@@ -78,6 +78,12 @@ export default function Reports() {
 
       {result?.data && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto max-h-[60vh]">
+          <div className="flex justify-end px-3 py-2 border-b">
+            <button onClick={() => exportCsv(cols, result.data)}
+              className="text-xs border rounded-lg px-3 py-1.5 text-gray-600 hover:bg-gray-50">
+              ⬇ Export CSV
+            </button>
+          </div>
           <table className="w-full text-xs">
             <thead className="bg-gray-50 text-gray-500 uppercase sticky top-0">
               <tr>{cols.map(c => <th key={c} className="px-3 py-2 text-left whitespace-nowrap">{c.replace(/_/g, ' ')}</th>)}</tr>
@@ -101,4 +107,16 @@ export default function Reports() {
       {result?.error && <p className="text-red-500 text-sm mt-4">{result.error}</p>}
     </div>
   )
+}
+
+function exportCsv(cols: string[], data: any[]) {
+  const rows = data.map(row => cols.map(c => {
+    const v = row[c] ?? ''
+    return typeof v === 'object' ? JSON.stringify(v) : String(v)
+  }))
+  const csv = [cols, ...rows].map(r => r.map(v => `"${v.toString().replace(/"/g, '""')}"`).join(',')).join('\n')
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  a.download = `report_${Date.now()}.csv`
+  a.click()
 }

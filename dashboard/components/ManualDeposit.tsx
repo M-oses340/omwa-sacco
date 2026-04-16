@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postDeposit } from '@/app/actions/deposit'
 
 type AccountType = 'fosa' | 'bosa_savings' | 'bosa_shares'
 type PaymentMethod = 'cash' | 'cheque' | 'bank_transfer' | 'mpesa'
@@ -55,55 +56,23 @@ export default function ManualDeposit() {
     if (!selectedMember || !amount || parseFloat(amount) <= 0) return
     setSubmitting(true)
 
-    try {
-      const amt = parseFloat(amount)
+    const result = await postDeposit({
+      memberId: selectedMember.id,
+      memberName: selectedMember.full_name,
+      accountType,
+      amount: parseFloat(amount),
+      method,
+      reference: reference || undefined,
+      notes: notes || undefined,
+    })
 
-      if (accountType === 'fosa') {
-        const { data: fosa } = await supabase
-          .from('fosa_accounts').select('id, balance').eq('member_id', selectedMember.id).single()
-        if (!fosa) throw new Error('FOSA account not found')
-        const newBal = +(parseFloat(fosa.balance) + amt).toFixed(2)
-        await supabase.from('fosa_accounts').update({ balance: newBal }).eq('id', fosa.id)
-        await supabase.from('transactions').insert({
-          member_id: selectedMember.id, account_type: 'fosa', transaction_type: 'deposit',
-          amount: amt, balance_before: fosa.balance, balance_after: newBal,
-          reference: reference || `MAN-${Date.now()}`,
-          description: notes || `Manual ${method} deposit`, status: 'completed',
-          payment_method: method,
-        })
-      } else {
-        const { data: bosa } = await supabase
-          .from('bosa_accounts').select('id, savings_balance, shares_balance').eq('member_id', selectedMember.id).single()
-        if (!bosa) throw new Error('BOSA account not found')
-
-        const field = accountType === 'bosa_savings' ? 'savings_balance' : 'shares_balance'
-        const current = parseFloat(bosa[field])
-        const newBal = +(current + amt).toFixed(2)
-        await supabase.from('bosa_accounts').update({ [field]: newBal }).eq('id', bosa.id)
-        await supabase.from('transactions').insert({
-          member_id: selectedMember.id, account_type: 'bosa',
-          transaction_type: accountType === 'bosa_savings' ? 'bosa_deposit' : 'shares_deposit',
-          amount: amt, balance_before: current, balance_after: newBal,
-          reference: reference || `MAN-${Date.now()}`,
-          description: notes || `Manual ${method} deposit to ${ACCOUNT_LABELS[accountType]}`,
-          status: 'completed', payment_method: method,
-        })
-      }
-
-      // Notify member
-      await supabase.from('notifications').insert({
-        member_id: selectedMember.id, type: 'payment',
-        title: 'Deposit Received 💵',
-        body: `KES ${amt.toLocaleString()} has been deposited to your ${ACCOUNT_LABELS[accountType]} account.`,
-        is_read: false,
-      })
-
-      showToast(`KES ${amt.toLocaleString()} deposited to ${selectedMember.full_name}`, true)
+    if (result.ok) {
+      showToast(`KES ${parseFloat(amount).toLocaleString()} deposited to ${selectedMember.full_name}`, true)
       setAmount(''); setReference(''); setNotes('')
       setSelectedMember(null); setSearch('')
       loadHistory()
-    } catch (err: any) {
-      showToast(err.message ?? 'Deposit failed', false)
+    } else {
+      showToast(result.error ?? 'Deposit failed', false)
     }
     setSubmitting(false)
   }

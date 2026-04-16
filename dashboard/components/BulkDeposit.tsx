@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postDeposit } from '@/app/actions/deposit'
 
 interface Row {
   member_number: string
@@ -90,35 +91,16 @@ export default function BulkDeposit() {
       if (r._status === 'error') { setProgress(i + 1); continue }
 
       try {
-        if (r.account === 'fosa') {
-          const { data: fosa } = await supabase
-            .from('fosa_accounts').select('id, balance').eq('member_id', r._memberId!).single()
-          if (!fosa) throw new Error('FOSA account not found')
-          const newBal = +(parseFloat(fosa.balance) + r.amount).toFixed(2)
-          await supabase.from('fosa_accounts').update({ balance: newBal }).eq('id', fosa.id)
-          await supabase.from('transactions').insert({
-            member_id: r._memberId, account_type: 'fosa', transaction_type: 'deposit',
-            amount: r.amount, balance_before: fosa.balance, balance_after: newBal,
-            reference: r.reference ?? `BULK-${Date.now()}`,
-            description: r.notes ?? 'Bulk deposit', status: 'completed',
-          })
-        } else {
-          const { data: bosa } = await supabase
-            .from('bosa_accounts').select('id, savings_balance, shares_balance').eq('member_id', r._memberId!).single()
-          if (!bosa) throw new Error('BOSA account not found')
-          const field = r.account === 'bosa_savings' ? 'savings_balance' : 'shares_balance'
-          const current = parseFloat(bosa[field])
-          const newBal = +(current + r.amount).toFixed(2)
-          await supabase.from('bosa_accounts').update({ [field]: newBal }).eq('id', bosa.id)
-          await supabase.from('transactions').insert({
-            member_id: r._memberId, account_type: 'bosa',
-            transaction_type: r.account === 'bosa_savings' ? 'bosa_deposit' : 'shares_deposit',
-            amount: r.amount, balance_before: current, balance_after: newBal,
-            reference: r.reference ?? `BULK-${Date.now()}`,
-            description: r.notes ?? 'Bulk deposit', status: 'completed',
-          })
-        }
-        updated[i] = { ...r, _status: 'ok' }
+        const result = await postDeposit({
+          memberId: r._memberId!,
+          memberName: r._memberName ?? '',
+          accountType: r.account,
+          amount: r.amount,
+          method: 'cash',
+          reference: r.reference,
+          notes: r.notes,
+        })
+        updated[i] = { ...r, _status: result.ok ? 'ok' : 'error', _error: result.error }
       } catch (err: any) {
         updated[i] = { ...r, _status: 'error', _error: err.message }
       }

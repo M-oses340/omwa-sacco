@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postRepayment } from '@/app/actions/deposit'
 
 type PaymentMethod = 'cash' | 'cheque' | 'bank_transfer' | 'mpesa'
 
@@ -62,50 +63,23 @@ export default function RepaymentPosting() {
     if (amt <= 0) return
     setSubmitting(true)
 
-    try {
-      const outstanding = parseFloat(activeLoan.outstanding_balance)
-      const repayAmt = Math.min(amt, outstanding)
-      const newOutstanding = +(outstanding - repayAmt).toFixed(2)
-      const isFullyRepaid = newOutstanding <= 0
+    const result = await postRepayment({
+      memberId: selectedMember.id,
+      loanId: activeLoan.id,
+      loanNumber: activeLoan.loan_number,
+      outstanding: parseFloat(activeLoan.outstanding_balance),
+      amount: amt,
+      method,
+      reference: reference || undefined,
+    })
 
-      // Update loan
-      await supabase.from('loans').update({
-        outstanding_balance: newOutstanding,
-        amount_repaid: supabase.rpc ? newOutstanding : newOutstanding, // just update outstanding
-        status: isFullyRepaid ? 'repaid' : 'disbursed',
-        updated_at: new Date().toISOString(),
-      }).eq('id', activeLoan.id)
-
-      // Record transaction (no FOSA debit for cash/cheque — money comes in externally)
-      const ref = reference || `REP-${Date.now()}`
-      await supabase.from('transactions').insert({
-        member_id: selectedMember.id, account_type: 'bosa',
-        transaction_type: 'loan_repayment',
-        amount: repayAmt, balance_before: outstanding, balance_after: newOutstanding,
-        reference: ref,
-        description: `Manual repayment (${method}) for ${activeLoan.loan_number}`,
-        status: 'completed', payment_method: method,
-      })
-
-      // Notify member
-      await supabase.from('notifications').insert({
-        member_id: selectedMember.id, type: 'payment',
-        title: isFullyRepaid ? 'Loan Fully Repaid 🎉' : 'Loan Repayment Posted ✅',
-        body: isFullyRepaid
-          ? `Your loan ${activeLoan.loan_number} has been fully repaid. Congratulations!`
-          : `KES ${repayAmt.toLocaleString()} repayment posted for loan ${activeLoan.loan_number}. Outstanding: KES ${newOutstanding.toLocaleString()}.`,
-        is_read: false,
-      })
-
-      showToast(`KES ${repayAmt.toLocaleString()} posted${isFullyRepaid ? ' — loan fully repaid!' : ''}`, true)
-      setAmount('')
-      setReference('')
-      setSelectedMember(null)
-      setSearch('')
-      setActiveLoan(null)
+    if (result.ok) {
+      showToast(`KES ${amt.toLocaleString()} posted${result.fullyRepaid ? ' — loan fully repaid!' : ''}`, true)
+      setAmount(''); setReference('')
+      setSelectedMember(null); setSearch(''); setActiveLoan(null)
       loadHistory()
-    } catch (err: any) {
-      showToast(err.message ?? 'Failed to post repayment', false)
+    } else {
+      showToast(result.error ?? 'Failed to post repayment', false)
     }
     setSubmitting(false)
   }

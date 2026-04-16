@@ -50,7 +50,7 @@ export default function BulkDeposit() {
         amount: parseFloat(obj.amount) || 0,
         reference: obj.reference || undefined,
         notes: obj.notes || undefined,
-        _status: 'pending',
+        _status: 'pending' as const,
       }
     }).filter(r => r.member_number && r.amount > 0)
   }
@@ -63,7 +63,7 @@ export default function BulkDeposit() {
     if (!parsed.length) { showToast('No valid rows found in CSV', false); return }
 
     // Resolve member IDs
-    const numbers = [...new Set(parsed.map(r => r.member_number))]
+    const numbers = Array.from(new Set(parsed.map(r => r.member_number)))
     const { data: members } = await supabase
       .from('members').select('id, full_name, member_number').in('member_number', numbers)
     const memberMap = Object.fromEntries((members ?? []).map(m => [m.member_number, m]))
@@ -80,7 +80,7 @@ export default function BulkDeposit() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  async function process() {
+  async function runDeposits() {
     if (!rows.length) return
     setProcessing(true)
     setProgress(0)
@@ -189,7 +189,7 @@ export default function BulkDeposit() {
                 </button>
               )}
               {!done && (
-                <button onClick={process} disabled={processing}
+                <button onClick={runDeposits} disabled={processing}
                   className="bg-green-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50">
                   {processing ? `Processing ${progress}/${rows.length}...` : 'Post All Deposits'}
                 </button>

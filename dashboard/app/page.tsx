@@ -15,6 +15,8 @@ import Dividends from '@/components/Dividends'
 import ManualDeposit from '@/components/ManualDeposit'
 import SalaryUpdate from '@/components/SalaryUpdate'
 import AuditLog from '@/components/AuditLog'
+import BulkDeposit from '@/components/BulkDeposit'
+import RepaymentPosting from '@/components/RepaymentPosting'
 import type { Session } from '@supabase/supabase-js'
 
 const ADMIN_ROLES = ['admin', 'treasurer', 'chairman', 'secretary']
@@ -63,6 +65,8 @@ export default function Home() {
     withdrawals:    <Withdrawals />,
     transactions:   <Transactions />,
     manual_deposit: <ManualDeposit />,
+    bulk_deposit:   <BulkDeposit />,
+    repayments:     <RepaymentPosting />,
     salary:         <SalaryUpdate />,
     dividends:      <Dividends />,
     notifications:  <Notifications />,

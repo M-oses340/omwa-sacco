@@ -1,11 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import MemberDetail from './MemberDetail'
 
 export default function Members() {
   const [members, setMembers] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<any>(null)
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => { load() }, [])
 
@@ -14,7 +17,7 @@ export default function Members() {
     const { data } = await supabase.from('members')
       .select('id, member_number, full_name, phone_number, role, status, created_at')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(300)
     setMembers(data ?? [])
     setLoading(false)
   }
@@ -22,21 +25,48 @@ export default function Members() {
   async function updateStatus(id: string, status: string) {
     await supabase.from('members').update({ status }).eq('id', id)
     setMembers(prev => prev.map(m => m.id === id ? { ...m, status } : m))
+    if (selected?.id === id) setSelected((s: any) => ({ ...s, status }))
   }
 
-  const filtered = members.filter(m =>
-    m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    m.member_number?.includes(search) ||
-    m.phone_number?.includes(search)
-  )
+  const filtered = members.filter(m => {
+    const matchSearch =
+      m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      m.member_number?.includes(search) ||
+      m.phone_number?.includes(search)
+    const matchStatus = statusFilter === 'all' || m.status === statusFilter
+    return matchSearch && matchStatus
+  })
+
+  const counts = {
+    all: members.length,
+    active: members.filter(m => m.status === 'active').length,
+    pending: members.filter(m => m.status === 'pending').length,
+    suspended: members.filter(m => m.status === 'suspended').length,
+  }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {selected && (
+        <MemberDetail member={selected} onClose={() => setSelected(null)} />
+      )}
+
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Members</h2>
         <input placeholder="Search name, number, phone..." value={search} onChange={e => setSearch(e.target.value)}
           className="border rounded-lg px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-green-500" />
       </div>
+
+      {/* Status filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {(['all', 'active', 'pending', 'suspended'] as const).map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors
+              ${statusFilter === s ? 'bg-green-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'}`}>
+            {s} ({counts[s]})
+          </button>
+        ))}
+      </div>
+
       {loading ? <p className="text-gray-400 text-sm">Loading...</p> : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full text-sm">
@@ -47,7 +77,8 @@ export default function Members() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(m => (
-                <tr key={m.id} className="hover:bg-gray-50">
+                <tr key={m.id} className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => setSelected(m)}>
                   <td className="px-4 py-3 font-mono text-xs">{m.member_number}</td>
                   <td className="px-4 py-3 font-medium">{m.full_name}</td>
                   <td className="px-4 py-3 text-gray-500">{m.phone_number}</td>
@@ -59,7 +90,7 @@ export default function Members() {
                       'bg-red-100 text-red-700'}`}>{m.status}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{m.created_at?.split('T')[0]}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     {m.status === 'pending' && (
                       <button onClick={() => updateStatus(m.id, 'active')}
                         className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Activate</button>

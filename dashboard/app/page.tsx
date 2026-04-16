@@ -12,6 +12,9 @@ import Withdrawals from '@/components/Withdrawals'
 import Settings from '@/components/Settings'
 import Notifications from '@/components/Notifications'
 import Dividends from '@/components/Dividends'
+import ManualDeposit from '@/components/ManualDeposit'
+import SalaryUpdate from '@/components/SalaryUpdate'
+import AuditLog from '@/components/AuditLog'
 import type { Session } from '@supabase/supabase-js'
 
 const ADMIN_ROLES = ['admin', 'treasurer', 'chairman', 'secretary']
@@ -54,15 +57,18 @@ export default function Home() {
   }
 
   const pages: Record<string, React.ReactNode> = {
-    overview: <Overview />,
-    members: <Members />,
-    loans: <Loans />,
-    withdrawals: <Withdrawals />,
-    transactions: <Transactions />,
-    dividends: <Dividends />,
-    notifications: <Notifications />,
-    reports: <Reports />,
-    settings: <Settings />,
+    overview:       <Overview setPage={setPage} />,
+    members:        <Members />,
+    loans:          <Loans />,
+    withdrawals:    <Withdrawals />,
+    transactions:   <Transactions />,
+    manual_deposit: <ManualDeposit />,
+    salary:         <SalaryUpdate />,
+    dividends:      <Dividends />,
+    notifications:  <Notifications />,
+    reports:        <Reports />,
+    audit:          <AuditLog />,
+    settings:       <Settings />,
   }
 
   return (

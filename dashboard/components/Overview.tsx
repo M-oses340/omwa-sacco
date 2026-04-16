@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function Overview() {
+export default function Overview({ setPage }: { setPage?: (p: string) => void }) {
   const [stats, setStats] = useState<any>(null)
   const [recent, setRecent] = useState<any[]>([])
 
@@ -39,12 +39,21 @@ export default function Overview() {
   if (!stats) return <div className="text-gray-400 text-sm">Loading...</div>
 
   const cards = [
-    { label: 'Active Members',       value: stats.activeMembers,             sub: `${stats.totalMembers} total` },
-    { label: 'BOSA Savings',         value: fmt(stats.totalSavings),         sub: `Shares: ${fmt(stats.totalShares)}` },
-    { label: 'FOSA Balances',        value: fmt(stats.totalFosa),            sub: 'Total FOSA holdings' },
-    { label: 'Loan Portfolio',       value: fmt(stats.totalLoans),           sub: 'Outstanding balance' },
-    { label: 'Pending Loan Approvals', value: stats.pendingLoans,            sub: 'Loans awaiting review', alert: stats.pendingLoans > 0 },
-    { label: 'Pending Withdrawals',  value: stats.pendingWithdrawals,        sub: 'Awaiting processing', alert: stats.pendingWithdrawals > 0 },
+    { label: 'Active Members',         value: stats.activeMembers,        sub: `${stats.totalMembers} total` },
+    { label: 'BOSA Savings',           value: fmt(stats.totalSavings),    sub: `Shares: ${fmt(stats.totalShares)}` },
+    { label: 'FOSA Balances',          value: fmt(stats.totalFosa),       sub: 'Total FOSA holdings' },
+    { label: 'Loan Portfolio',         value: fmt(stats.totalLoans),      sub: 'Outstanding balance' },
+    { label: 'Pending Loan Approvals', value: stats.pendingLoans,         sub: 'Loans awaiting review',    alert: stats.pendingLoans > 0 },
+    { label: 'Pending Withdrawals',    value: stats.pendingWithdrawals,   sub: 'Awaiting processing',      alert: stats.pendingWithdrawals > 0 },
+  ]
+
+  const quickActions = [
+    { label: 'Approve Loans',     page: 'loans',          icon: '💰', highlight: stats.pendingLoans > 0 },
+    { label: 'Process Withdrawals', page: 'withdrawals',  icon: '💸', highlight: stats.pendingWithdrawals > 0 },
+    { label: 'Manual Deposit',    page: 'manual_deposit', icon: '💵', highlight: false },
+    { label: 'Send Notification', page: 'notifications',  icon: '🔔', highlight: false },
+    { label: 'Run Report',        page: 'reports',        icon: '📋', highlight: false },
+    { label: 'Dividends',         page: 'dividends',      icon: '🎁', highlight: false },
   ]
 
   const txIcon: Record<string, string> = {
@@ -55,7 +64,9 @@ export default function Overview() {
   return (
     <div>
       <h2 className="text-xl font-semibold mb-6">Overview</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {cards.map(c => (
           <div key={c.label} className={`rounded-xl shadow-sm p-5 border ${c.alert ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-100'}`}>
             <p className="text-xs text-gray-500 mb-1">{c.label}</p>
@@ -65,6 +76,27 @@ export default function Overview() {
         ))}
       </div>
 
+      {/* Quick actions */}
+      {setPage && (
+        <div className="mb-8">
+          <h3 className="font-medium text-gray-700 mb-3">Quick Actions</h3>
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+            {quickActions.map(a => (
+              <button key={a.page} onClick={() => setPage(a.page)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-colors
+                  ${a.highlight
+                    ? 'bg-yellow-50 border-yellow-300 text-yellow-800 hover:bg-yellow-100'
+                    : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                <span className="text-xl">{a.icon}</span>
+                {a.label}
+                {a.highlight && <span className="w-2 h-2 rounded-full bg-red-500" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent activity */}
       <h3 className="font-medium text-gray-700 mb-3">Recent Activity</h3>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-50">
         {recent.length === 0 && <p className="text-center text-gray-400 text-sm py-6">No recent transactions</p>}

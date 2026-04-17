@@ -27,16 +27,15 @@ class LoanBloc extends Bloc<LoanEvent, LoanState> {
 
   Future<Map<String, dynamic>> _invoke(String fn, Map<String, dynamic> body) async {
     final token = _supabase.auth.currentSession?.accessToken;
-    final payload = token != null ? {...body, 'jwt': token} : body;
     final url = Uri.parse('${SupabaseConstants.url}/functions/v1/$fn');
     final res = await http.post(
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_anonKey',
+        'Authorization': 'Bearer ${token ?? _anonKey}',
         'apikey': _anonKey,
       },
-      body: jsonEncode(payload),
+      body: jsonEncode(body),
     );
     debugPrint('[LOAN INVOKE] $fn → ${res.statusCode}');
     return jsonDecode(res.body) as Map<String, dynamic>;

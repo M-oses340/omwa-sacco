@@ -223,7 +223,7 @@ async function fosaBalances() {
 async function loanBook() {
   const { data, error } = await db.from('loans')
     .select('members!loans_member_id_fkey(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, monthly_repayment, due_date, disbursed_at, status')
-    .in('status', ['disbursed', 'active']).order('outstanding_balance', { ascending: false })
+    .in('status', ['disbursed']).order('outstanding_balance', { ascending: false })
   if (error) throw new Error(error.message)
   const rows = data ?? []
   const totalPortfolio  = rows.reduce((s: number, r: any) => s + parseFloat(r.principal ?? 0), 0)

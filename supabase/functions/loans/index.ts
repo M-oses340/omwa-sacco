@@ -220,6 +220,82 @@ Deno.serve(async (req: Request) => {
   }
 })
 
+// ── Auto-disburse helpers ─────────────────────────────────────────────────────
+async function getIntaSendBalance(): Promise<number> {
+  try {
+    const IS = Deno.env.get('INTASEND_SECRET_KEY')
+    const IB = Deno.env.get('INTASEND_SANDBOX') === 'true' ? 'https://sandbox.intasend.com/api/v1' : 'https://payment.intasend.com/api/v1'
+    if (!IS) return 0
+    const res = await fetch(`${IB}/wallets/`, { headers: { 'Authorization': `Bearer ${IS}`, 'Content-Type': 'application/json' } })
+    if (!res.ok) return 0
+    const data = await res.json()
+    const wallets: any[] = data.results ?? data ?? []
+    return wallets.filter((w: any) => w.currency === 'KES').reduce((s: number, w: any) => s + parseFloat(w.available_balance ?? w.balance ?? '0'), 0)
+  } catch { return 0 }
+}
+
+async function notifyAdmins(title: string, message: string) {
+  try {
+    const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+    const res = await fetch(`${B}/rest/v1/members?role=in.(admin,treasurer,chairman)&status=eq.active&select=id`, { headers: H })
+    const admins: any[] = res.ok ? await res.json() : []
+    await Promise.allSettled(admins.map((a: any) => notify(a.id, 'system', title, message, { type: 'auto_disbursed' })))
+  } catch (e) { console.error('[NOTIFY_ADMINS]', (e as Error).message) }
+}
+
+async function tryAutoDisburse(loan: any, fosaId: string, memberId: string, principal: number, durationMonths: number, loanNumber: string, productName: string): Promise<{ disbursed: boolean; loan?: any }> {
+  try {
+    const walletBalance = await getIntaSendBalance()
+    console.log(`[AUTO] Wallet balance: ${walletBalance}, principal: ${principal}`)
+    if (walletBalance < principal) {
+      console.log('[AUTO] Insufficient liquidity, skipping auto-disburse')
+      return { disbursed: false }
+    }
+
+    const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+
+    // Get current FOSA balance
+    const fosaRes = await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${fosaId}&select=balance&limit=1`, { headers: H })
+    const fosas = await fosaRes.json()
+    const fosaBalance = parseFloat(fosas[0]?.balance ?? '0')
+    const newBalance = fosaBalance + principal
+    const dueDate = new Date()
+    dueDate.setMonth(dueDate.getMonth() + durationMonths)
+    const now = new Date().toISOString()
+
+    // Approve + disburse atomically
+    await fetch(`${B}/rest/v1/loans?id=eq.${loan.id}`, {
+      method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ status: 'disbursed', approved_at: now, disbursed_at: now, due_date: dueDate.toISOString().split('T')[0] }),
+    })
+    await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${fosaId}`, {
+      method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ balance: newBalance }),
+    })
+    await fetch(`${B}/rest/v1/transactions`, {
+      method: 'POST', headers: H,
+      body: JSON.stringify({
+        member_id: memberId, account_type: 'fosa', transaction_type: 'loan_disbursement',
+        amount: principal, balance_before: fosaBalance, balance_after: newBalance,
+        reference: `DIS-${Date.now()}`, description: `Auto-disbursement for ${loanNumber}`, status: 'completed',
+      }),
+    })
+
+    await notify(memberId, 'loan_update',
+      'Loan Approved & Disbursed 🎉',
+      `Your ${productName} of KES ${principal.toLocaleString()} has been automatically approved and credited to your FOSA account.`,
+      { type: 'loan_disbursed', loan_number: loanNumber }
+    )
+
+    return { disbursed: true, loan: { ...loan, status: 'disbursed' } }
+  } catch (e) {
+    console.error('[AUTO_DISBURSE]', (e as Error).message)
+    return { disbursed: false }
+  }
+}
+
 // ── Eligibility ───────────────────────────────────────────────────────────────
 async function getEligibility(memberId: string) {
   const [bosaRes, fosaRes, activeLoanRes] = await Promise.all([
@@ -290,8 +366,23 @@ async function applyLoan(memberId: string, body: any) {
 
   if (error) return json({ error: 'Failed to submit application' }, 500)
 
-  // Build amortization schedule
   const schedule = buildSchedule(p, principal, duration_months, rep.monthly)
+
+  // ── Auto-approve & disburse if eligible ──────────────────────────────────
+  const AUTO_ELIGIBLE_TYPES = ['normal', 'bima', 'emergency', 'school_fees', 'asset_financing',
+    'refinancing', 'super', 'mega', 'premier', 'msasa', 'fosa_flex', 'fosa_golden', 'fosa_ultra', 'qcash']
+  const canAutoApprove = AUTO_ELIGIBLE_TYPES.includes(loan_type)
+
+  if (canAutoApprove) {
+    const autoResult = await tryAutoDisburse(loan.data ?? loan, fosa.id, memberId, principal, duration_months, loanNumber, p.name)
+    if (autoResult.disbursed) {
+      await notifyAdmins(
+        'Auto-Disbursed Loan 🤖',
+        `${p.name} LN ${loanNumber} for KES ${principal.toLocaleString()} was auto-approved and disbursed to member FOSA.`,
+      )
+      return json({ success: true, loan: autoResult.loan, summary: { ...rep, no_dividends: p.noDividends }, schedule, auto_disbursed: true })
+    }
+  }
 
   await notify(memberId, 'loan_update',
     'Loan Application Received 📋',
@@ -299,7 +390,7 @@ async function applyLoan(memberId: string, body: any) {
     { type: 'loan_applied', loan_number: loanNumber }
   )
 
-  return json({ success: true, loan, summary: { ...rep, no_dividends: p.noDividends }, schedule })
+  return json({ success: true, loan, summary: { ...rep, no_dividends: p.noDividends }, schedule, auto_disbursed: false })
 }
 
 // ── Schedule ──────────────────────────────────────────────────────────────────

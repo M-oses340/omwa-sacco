@@ -50,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
-          const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Flexible(child: Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
           if (unread > 0) ...[
             const SizedBox(width: 8),
             Container(

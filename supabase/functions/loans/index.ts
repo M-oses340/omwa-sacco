@@ -405,8 +405,6 @@ async function approveLoan(body: any) {
 async function disburseLoan(body: any) {
   const { loan_id } = body
   const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const IS = Deno.env.get('INTASEND_SECRET_KEY')!
-  const IB = Deno.env.get('INTASEND_SANDBOX') === 'true' ? 'https://sandbox.intasend.com/api/v1' : 'https://payment.intasend.com/api/v1'
   const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
 
   const loanRes = await fetch(`${B}/rest/v1/loans?id=eq.${loan_id}&status=eq.approved&limit=1`, { headers: H })
@@ -414,24 +412,16 @@ async function disburseLoan(body: any) {
   const loan = loans[0]
   if (!loan) return json({ error: 'Approved loan not found' }, 404)
 
-  const fosaRes = await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${loan.disbursed_to_fosa_id}&select=id,balance,member_id&limit=1`, { headers: H })
+  const fosaRes = await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${loan.disbursed_to_fosa_id}&select=id,balance&limit=1`, { headers: H })
   const fosas = await fosaRes.json()
   const fosa = fosas[0]
   if (!fosa) return json({ error: 'FOSA account not found' }, 404)
-
-  // Get member phone number for M-Pesa disbursement
-  const memberRes = await fetch(`${B}/rest/v1/members?id=eq.${loan.member_id}&select=full_name,phone_number&limit=1`, { headers: H })
-  const members = await memberRes.json()
-  const member = members[0]
-  if (!member) return json({ error: 'Member not found' }, 404)
 
   const principal = parseFloat(loan.principal)
   const newBalance = parseFloat(fosa.balance) + principal
   const dueDate = new Date()
   dueDate.setMonth(dueDate.getMonth() + loan.duration_months)
-  const ref = `DIS-${Date.now()}`
 
-  // ── 1. Credit FOSA internally ─────────────────────────────────────────────
   await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${fosa.id}`, {
     method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
     body: JSON.stringify({ balance: newBalance }),
@@ -440,54 +430,19 @@ async function disburseLoan(body: any) {
     method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
     body: JSON.stringify({ status: 'disbursed', disbursed_at: new Date().toISOString(), due_date: dueDate.toISOString().split('T')[0] }),
   })
-
-  // ── 2. Send M-Pesa B2C via IntaSend ──────────────────────────────────────
-  const phone = member.phone_number?.replace(/^\+/, '').replace(/^0/, '254')
-  let intasendRef: string | null = null
-  let txStatus = 'pending'
-
-  if (IS && phone) {
-    const intaRes = await fetch(`${IB}/send-money/initiate/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IS}` },
-      body: JSON.stringify({
-        currency: 'KES',
-        provider: 'M-PESA',
-        requires_approval: 'NO',
-        transactions: [{
-          name: member.full_name,
-          account: phone,
-          amount: principal.toString(),
-          narrative: `Loan disbursement - ${loan.loan_number}`,
-        }],
-      }),
-    })
-    const intaData = await intaRes.json()
-    console.log('[DISBURSE] IntaSend B2C:', intaRes.status, JSON.stringify(intaData))
-    if (intaRes.ok) {
-      intasendRef = intaData.file_id ?? intaData.tracking_id ?? null
-    } else {
-      console.error('[DISBURSE] IntaSend failed:', JSON.stringify(intaData))
-      // Don't fail the disbursement — funds are already in FOSA
-      txStatus = 'failed'
-    }
-  }
-
-  // ── 3. Record transaction ─────────────────────────────────────────────────
   await fetch(`${B}/rest/v1/transactions`, {
     method: 'POST', headers: H,
     body: JSON.stringify({
       member_id: loan.member_id, account_type: 'fosa', transaction_type: 'loan_disbursement',
       amount: principal, balance_before: parseFloat(fosa.balance), balance_after: newBalance,
-      reference: ref, intasend_ref: intasendRef,
-      description: `Loan disbursement for ${loan.loan_number}`, status: txStatus,
+      reference: `DIS-${Date.now()}`, description: `Loan disbursement for ${loan.loan_number}`, status: 'completed',
     }),
   })
 
   await notify(loan.member_id, 'loan_update',
     'Loan Disbursed 💰',
-    `KES ${principal.toLocaleString()} has been sent to your M-Pesa for loan ${loan.loan_number}.`,
+    `KES ${principal.toLocaleString()} has been credited to your FOSA account for loan ${loan.loan_number}.`,
     { type: 'loan_disbursed', loan_id }
   )
-  return json({ success: true, intasend_ref: intasendRef })
+  return json({ success: true })
 }

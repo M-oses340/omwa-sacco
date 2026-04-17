@@ -35,7 +35,7 @@ export default function Loans() {
     if (!data?.length) { setLoans([]); setLoading(false); return }
 
     // Fetch member details separately
-    const memberIds = [...new Set(data.map((l: any) => l.member_id).filter(Boolean))]
+    const memberIds = Array.from(new Set(data.map((l: any) => l.member_id).filter(Boolean)))
     const { data: members } = await supabase.from('members')
       .select('id, full_name, member_number, phone_number')
       .in('id', memberIds)

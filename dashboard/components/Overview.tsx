@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getIntaSendBalance } from '@/app/actions/intasend'
 
 export default function Overview({ setPage }: { setPage?: (p: string) => void }) {
   const [stats, setStats] = useState<any>(null)
   const [recent, setRecent] = useState<any[]>([])
+  const [liquidity, setLiquidity] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
-      const [members, bosa, fosa, loans, pending, pendingWithdrawals, recentTxs] = await Promise.all([
+      const [members, bosa, fosa, loans, pending, pendingWithdrawals, recentTxs, walletBalance] = await Promise.all([
         supabase.from('members').select('id, status', { count: 'exact' }),
         supabase.from('bosa_accounts').select('savings_balance, shares_balance'),
         supabase.from('fosa_accounts').select('balance'),
@@ -19,6 +21,7 @@ export default function Overview({ setPage }: { setPage?: (p: string) => void })
           .select('id, transaction_type, amount, status, created_at, members!transactions_member_id_fkey(full_name)')
           .order('created_at', { ascending: false })
           .limit(8),
+        getIntaSendBalance(),
       ])
       const totalSavings = (bosa.data ?? []).reduce((s, r) => s + parseFloat(r.savings_balance ?? 0), 0)
       const totalShares  = (bosa.data ?? []).reduce((s, r) => s + parseFloat(r.shares_balance ?? 0), 0)
@@ -32,6 +35,7 @@ export default function Overview({ setPage }: { setPage?: (p: string) => void })
         pendingWithdrawals: pendingWithdrawals.count ?? 0,
       })
       setRecent(recentTxs.data ?? [])
+      setLiquidity(walletBalance)
     }
     load()
   }, [])
@@ -43,6 +47,7 @@ export default function Overview({ setPage }: { setPage?: (p: string) => void })
     { label: 'BOSA Savings',           value: fmt(stats.totalSavings),  sub: `Shares: ${fmt(stats.totalShares)}` },
     { label: 'FOSA Balances',          value: fmt(stats.totalFosa),     sub: 'Total FOSA holdings' },
     { label: 'Loan Portfolio',         value: fmt(stats.totalLoans),    sub: 'Outstanding balance' },
+    { label: 'Cash Liquidity',         value: liquidity !== null ? fmt(liquidity) : '—', sub: 'IntaSend wallet balance', alert: liquidity !== null && liquidity < 50000 },
     { label: 'Pending Loan Approvals', value: stats.pendingLoans,       sub: 'Loans awaiting review',  alert: stats.pendingLoans > 0 },
     { label: 'Pending Withdrawals',    value: stats.pendingWithdrawals, sub: 'Awaiting processing',    alert: stats.pendingWithdrawals > 0 },
   ]

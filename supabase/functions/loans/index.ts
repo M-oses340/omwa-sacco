@@ -1,6 +1,50 @@
 // deno-lint-ignore-file no-explicit-any
 import { createRemoteJWKSet, jwtVerify } from 'https://esm.sh/jose@5'
-import { notify } from '../notifications/index.ts'
+
+// ── Inlined notify helper ─────────────────────────────────────────────────────
+async function notify(
+  memberId: string,
+  type: 'deposit' | 'withdrawal' | 'loan_update' | 'repayment_reminder' | 'dividend' | 'system',
+  title: string,
+  message: string,
+  data?: Record<string, string>
+) {
+  try {
+    const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+    const prefKey: Record<string, string> = {
+      deposit: 'deposits', withdrawal: 'withdrawals',
+      loan_update: 'loan_updates', repayment_reminder: 'repayment_reminders',
+      dividend: 'dividends', system: 'system_alerts',
+    }
+    const prefsRes = await fetch(`${B}/rest/v1/notification_preferences?member_id=eq.${memberId}&limit=1`, { headers: H })
+    const prefsArr = prefsRes.ok ? await prefsRes.json() : []
+    const prefs = prefsArr[0]
+    const key = prefKey[type]
+    if (prefs && key && prefs[key] === false) return
+
+    const tokensRes = await fetch(`${B}/rest/v1/device_tokens?member_id=eq.${memberId}&select=token`, { headers: H })
+    const tokens: any[] = tokensRes.ok ? await tokensRes.json() : []
+
+    await fetch(`${B}/rest/v1/notifications`, {
+      method: 'POST', headers: H,
+      body: JSON.stringify({ member_id: memberId, title, body: message, data: data ?? {}, created_at: new Date().toISOString() }),
+    })
+
+    const FCM_KEY = Deno.env.get('FCM_SERVER_KEY')
+    if (FCM_KEY && tokens.length) {
+      await Promise.allSettled(tokens.map((t: any) =>
+        fetch('https://fcm.googleapis.com/fcm/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `key=${FCM_KEY}` },
+          body: JSON.stringify({ to: t.token, notification: { title, body: message, sound: 'default' }, data: data ?? {}, priority: 'high' }),
+        }).catch(e => console.error('[FCM]', e.message))
+      ))
+    }
+  } catch (e) {
+    console.error('[NOTIFY]', (e as Error).message)
+  }
+}
 
 async function getUid(req: Request, bodyJwt?: string): Promise<string | null> {
   const url = Deno.env.get('SUPABASE_URL')!
@@ -119,14 +163,23 @@ function calcRepayment(p: Product, principal: number, months: number) {
 
 async function nextLoanNumber() {
   const year = new Date().getFullYear()
-  const { count } = await supabase.from('loans').select('*', { count: 'exact', head: true }).gte('created_at', `${year}-01-01`)
-  return `LN-${year}-${String((count ?? 0) + 1).padStart(4, '0')}`
+  const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const res = await fetch(
+    `${B}/rest/v1/loans?created_at=gte.${year}-01-01&select=id`,
+    { headers: { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Prefer': 'count=exact' } }
+  )
+  const countHeader = res.headers.get('content-range') // e.g. "0-9/10"
+  const count = countHeader ? parseInt(countHeader.split('/')[1] ?? '0') : 0
+  return `LN-${year}-${String(count + 1).padStart(4, '0')}`
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   let body: any
-  try { body = JSON.parse(await req.text()) } catch { return json({ error: 'bad json' }, 400) }
+  const rawBody = await req.text()
+  console.log('[LOANS] Raw body:', rawBody)
+  try { body = JSON.parse(rawBody) } catch { return json({ error: 'bad json' }, 400) }
+  console.log('[LOANS] Parsed body:', JSON.stringify(body))
 
   const userId = await getUid(req, body?.jwt)
   if (!userId) return json({ error: 'Unauthorized' }, 401)

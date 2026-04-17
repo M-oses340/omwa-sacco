@@ -199,7 +199,7 @@ async function savingsSummary() {
 async function depositCollection(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('transactions')
-    .select('created_at, members(full_name, member_number), amount, payment_method, status, reference')
+    .select('created_at, members!transactions_member_id_fkey(full_name, member_number), amount, payment_method, status, reference')
     .eq('transaction_type', 'deposit').order('created_at', { ascending: false })
   q = applyDateFilter(q, 'created_at', start, end)
   const { data, error } = await q
@@ -378,7 +378,7 @@ async function cashFlow(params: any) {
 async function withdrawalReport(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('transactions')
-    .select('created_at, members(full_name, member_number), amount, payment_method, status, reference')
+    .select('created_at, members!transactions_member_id_fkey(full_name, member_number), amount, payment_method, status, reference')
     .in('transaction_type', ['withdrawal', 'fosa_withdrawal']).order('created_at', { ascending: false })
   q = applyDateFilter(q, 'created_at', start, end)
   const { data, error } = await q
@@ -414,7 +414,7 @@ async function dailySummary(params: any) {
 async function mpesaReconciliation(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('transactions')
-    .select('created_at, reference, members(full_name, member_number), amount, status, transaction_type')
+    .select('created_at, reference, members!transactions_member_id_fkey(full_name, member_number), amount, status, transaction_type')
     .eq('payment_method', 'mpesa').order('created_at', { ascending: false })
   q = applyDateFilter(q, 'created_at', start, end)
   const { data, error } = await q
@@ -439,7 +439,7 @@ async function shareCapital() {
 async function dividendReport(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('transactions')
-    .select('created_at, members(member_number, full_name), amount, status')
+    .select('created_at, members!transactions_member_id_fkey(member_number, full_name), amount, status')
     .eq('transaction_type', 'dividend').order('created_at', { ascending: false })
   q = applyDateFilter(q, 'created_at', start, end)
   const { data, error } = await q

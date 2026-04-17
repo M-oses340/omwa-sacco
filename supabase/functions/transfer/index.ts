@@ -19,7 +19,9 @@ async function getUid(req: Request, bodyJwt?: string): Promise<string | null> {
 }
 
 Deno.serve(async (req: Request) => {
-  const R = (d: any, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
+  const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
+  const R = (d: any, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   let body: any
   try { body = JSON.parse(await req.text()) } catch { return R({ error: 'bad json' }, 400) }
   const u = await getUid(req, body?.jwt)

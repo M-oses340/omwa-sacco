@@ -7,7 +7,9 @@ const db = createClient(
 )
 
 const R = (d: unknown, s = 200) =>
-  new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
+  new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' } })
+
+const CORS_HEADERS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 function getUserId(req: Request, body: any): string | null {
@@ -29,6 +31,7 @@ const ADMIN_ROLES = ['admin', 'treasurer', 'chairman']
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   let body: any
   try { body = await req.json() } catch { return R({ error: 'Invalid JSON' }, 400) }
 

@@ -186,7 +186,7 @@ async function dormantMembers() {
 // ── Admin: Savings reports ────────────────────────────────────────────────────
 async function savingsSummary() {
   const { data, error } = await db.from('bosa_accounts')
-    .select('members(member_number, full_name), savings_balance, shares_balance, status')
+    .select('members!bosa_accounts_member_id_fkey(member_number, full_name), savings_balance, shares_balance, status')
     .order('savings_balance', { ascending: false })
   if (error) throw new Error(error.message)
 
@@ -211,7 +211,7 @@ async function depositCollection(params: any) {
 
 async function fosaBalances() {
   const { data, error } = await db.from('fosa_accounts')
-    .select('account_number, members(full_name, member_number), balance, status')
+    .select('account_number, members!fosa_accounts_member_id_fkey(full_name, member_number), balance, status')
     .order('balance', { ascending: false })
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -222,7 +222,7 @@ async function fosaBalances() {
 // ── Admin: Loan reports ───────────────────────────────────────────────────────
 async function loanBook() {
   const { data, error } = await db.from('loans')
-    .select('members(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, monthly_repayment, due_date, disbursed_at, status')
+    .select('members!loans_member_id_fkey(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, monthly_repayment, due_date, disbursed_at, status')
     .in('status', ['disbursed', 'active']).order('outstanding_balance', { ascending: false })
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -234,7 +234,7 @@ async function loanBook() {
 async function loanDisbursements(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('loans')
-    .select('disbursed_at, members(full_name, member_number), loan_number, loan_type, principal, status')
+    .select('disbursed_at, members!loans_member_id_fkey(full_name, member_number), loan_number, loan_type, principal, status')
     .eq('status', 'disbursed').order('disbursed_at', { ascending: false })
   q = applyDateFilter(q, 'disbursed_at', start, end)
   const { data, error } = await q
@@ -247,7 +247,7 @@ async function loanDisbursements(params: any) {
 async function arrearsReport() {
   const today = new Date().toISOString().split('T')[0]
   const { data, error } = await db.from('loans')
-    .select('members(full_name, member_number), loan_number, loan_type, outstanding_balance, monthly_repayment, due_date, status')
+    .select('members!loans_member_id_fkey(full_name, member_number), loan_number, loan_type, outstanding_balance, monthly_repayment, due_date, status')
     .in('status', ['disbursed', 'defaulted']).lt('due_date', today)
     .order('due_date')
   if (error) throw new Error(error.message)
@@ -261,7 +261,7 @@ async function arrearsReport() {
 
 async function nplReport() {
   const { data, error } = await db.from('loans')
-    .select('members(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, due_date')
+    .select('members!loans_member_id_fkey(full_name, member_number), loan_number, loan_type, principal, outstanding_balance, due_date')
     .eq('status', 'defaulted')
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -379,7 +379,7 @@ async function withdrawalReport(params: any) {
   const { start, end } = dateFilter(params)
   let q = db.from('transactions')
     .select('created_at, members!transactions_member_id_fkey(full_name, member_number), amount, payment_method, status, reference')
-    .in('transaction_type', ['withdrawal', 'fosa_withdrawal']).order('created_at', { ascending: false })
+    .in('transaction_type', ['withdrawal']).order('created_at', { ascending: false })
   q = applyDateFilter(q, 'created_at', start, end)
   const { data, error } = await q
   if (error) throw new Error(error.message)
@@ -428,7 +428,7 @@ async function mpesaReconciliation(params: any) {
 // ── Admin: Compliance reports ─────────────────────────────────────────────────
 async function shareCapital() {
   const { data, error } = await db.from('bosa_accounts')
-    .select('members(member_number, full_name), shares_balance, status')
+    .select('members!bosa_accounts_member_id_fkey(member_number, full_name), shares_balance, status')
     .order('shares_balance', { ascending: false })
   if (error) throw new Error(error.message)
   const rows = data ?? []
@@ -452,7 +452,7 @@ async function dividendReport(params: any) {
 // ── Admin: Operational reports ────────────────────────────────────────────────
 async function pendingApprovals() {
   const { data, error } = await db.from('loans')
-    .select('loan_type, members(full_name, member_number), loan_number, principal, created_at, status')
+    .select('loan_type, members!loans_member_id_fkey(full_name, member_number), loan_number, principal, created_at, status')
     .eq('status', 'pending').order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return R({ data: data ?? [], count: (data ?? []).length })

@@ -62,7 +62,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ]),
         actions: [
           if (unread > 0)
-            TextButton(onPressed: _markAllRead, child: const Text('Mark all read')),
+            TextButton(onPressed: _markAllRead, child: const Text('Mark all', style: TextStyle(fontSize: 12))),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
           IconButton(
             icon: const Icon(Icons.tune_outlined),

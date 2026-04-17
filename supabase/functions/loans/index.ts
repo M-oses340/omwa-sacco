@@ -61,7 +61,14 @@ async function getUid(req: Request, bodyJwt?: string): Promise<string | null> {
 }
 
 function json(d: unknown, s = 200) {
-  return new Response(JSON.stringify(d), { status: s, headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(d), {
+    status: s,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    },
+  })
 }
 
 // Raw PostgREST helpers
@@ -174,12 +181,17 @@ async function nextLoanNumber() {
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
   let body: any
-  const rawBody = await req.text()
-  console.log('[LOANS] Raw body:', rawBody)
-  try { body = JSON.parse(rawBody) } catch { return json({ error: 'bad json' }, 400) }
-  console.log('[LOANS] Parsed body:', JSON.stringify(body))
+  try { body = JSON.parse(await req.text()) } catch { return json({ error: 'bad json' }, 400) }
 
   const userId = await getUid(req, body?.jwt)
   if (!userId) return json({ error: 'Unauthorized' }, 401)
@@ -366,18 +378,24 @@ async function repayLoan(memberId: string, body: any) {
 // ── Approve (admin) ───────────────────────────────────────────────────────────
 async function approveLoan(body: any) {
   const { loan_id } = body
-  const { data: loan } = await supabase.from('loans').select('member_id, loan_number, loan_type, principal_amount')
-    .eq('id', loan_id).eq('status', 'pending').single()
+  const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
+
+  const loanRes = await fetch(`${B}/rest/v1/loans?id=eq.${loan_id}&status=eq.pending&select=member_id,loan_number,loan_type,principal&limit=1`, { headers: H })
+  const loans = await loanRes.json()
+  const loan = loans[0]
   if (!loan) return json({ error: 'Pending loan not found' }, 404)
 
-  const { error } = await supabase.from('loans').update({
-    status: 'approved', approved_at: new Date().toISOString(),
-  }).eq('id', loan_id).eq('status', 'pending')
-  if (error) return json({ error: error.message }, 500)
+  const updateRes = await fetch(`${B}/rest/v1/loans?id=eq.${loan_id}&status=eq.pending`, {
+    method: 'PATCH',
+    headers: { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ status: 'approved', approved_at: new Date().toISOString() }),
+  })
+  if (!updateRes.ok) return json({ error: `Update failed: ${await updateRes.text()}` }, 500)
 
   await notify(loan.member_id, 'loan_update',
     'Loan Approved ✅',
-    `Your ${loan.loan_type.replaceAll('_', ' ')} loan of KES ${parseFloat(loan.principal_amount).toLocaleString()} has been approved.`,
+    `Your ${loan.loan_type.replaceAll('_', ' ')} loan of KES ${parseFloat(loan.principal).toLocaleString()} has been approved.`,
     { type: 'loan_approved', loan_id }
   )
   return json({ success: true })
@@ -386,11 +404,17 @@ async function approveLoan(body: any) {
 // ── Disburse (admin) ──────────────────────────────────────────────────────────
 async function disburseLoan(body: any) {
   const { loan_id } = body
+  const B = Deno.env.get('SUPABASE_URL')!, K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const H = { 'apikey': K, 'Authorization': `Bearer ${K}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' }
 
-  const { data: loan } = await supabase.from('loans').select('*').eq('id', loan_id).eq('status', 'approved').single()
+  const loanRes = await fetch(`${B}/rest/v1/loans?id=eq.${loan_id}&status=eq.approved&limit=1`, { headers: H })
+  const loans = await loanRes.json()
+  const loan = loans[0]
   if (!loan) return json({ error: 'Approved loan not found' }, 404)
 
-  const { data: fosa } = await supabase.from('fosa_accounts').select('id, balance').eq('id', loan.disbursed_to_fosa_id).single()
+  const fosaRes = await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${loan.disbursed_to_fosa_id}&select=id,balance&limit=1`, { headers: H })
+  const fosas = await fosaRes.json()
+  const fosa = fosas[0]
   if (!fosa) return json({ error: 'FOSA account not found' }, 404)
 
   const principal = parseFloat(loan.principal)
@@ -398,23 +422,27 @@ async function disburseLoan(body: any) {
   const dueDate = new Date()
   dueDate.setMonth(dueDate.getMonth() + loan.duration_months)
 
-  await supabase.from('fosa_accounts').update({ balance: newBalance }).eq('id', fosa.id)
-  await supabase.from('loans').update({
-    status: 'disbursed', disbursed_at: new Date().toISOString(),
-    due_date: dueDate.toISOString().split('T')[0],
-  }).eq('id', loan_id)
-
-  await supabase.from('transactions').insert({
-    member_id: loan.member_id, account_type: 'fosa', transaction_type: 'loan_disbursement',
-    amount: principal, balance_before: parseFloat(fosa.balance), balance_after: newBalance,
-    reference: `DIS-${Date.now()}`, description: `Loan disbursement for ${loan.loan_number}`, status: 'completed',
+  await fetch(`${B}/rest/v1/fosa_accounts?id=eq.${fosa.id}`, {
+    method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ balance: newBalance }),
+  })
+  await fetch(`${B}/rest/v1/loans?id=eq.${loan_id}`, {
+    method: 'PATCH', headers: { ...H, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ status: 'disbursed', disbursed_at: new Date().toISOString(), due_date: dueDate.toISOString().split('T')[0] }),
+  })
+  await fetch(`${B}/rest/v1/transactions`, {
+    method: 'POST', headers: H,
+    body: JSON.stringify({
+      member_id: loan.member_id, account_type: 'fosa', transaction_type: 'loan_disbursement',
+      amount: principal, balance_before: parseFloat(fosa.balance), balance_after: newBalance,
+      reference: `DIS-${Date.now()}`, description: `Loan disbursement for ${loan.loan_number}`, status: 'completed',
+    }),
   })
 
   await notify(loan.member_id, 'loan_update',
     'Loan Disbursed 💰',
     `KES ${principal.toLocaleString()} has been credited to your FOSA account for loan ${loan.loan_number}.`,
-    { type: 'loan_disbursed', loan_id: body.loan_id }
+    { type: 'loan_disbursed', loan_id }
   )
-
   return json({ success: true })
 }

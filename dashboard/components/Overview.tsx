@@ -12,7 +12,7 @@ export default function Overview({ setPage }: { setPage?: (p: string) => void })
         supabase.from('members').select('id, status', { count: 'exact' }),
         supabase.from('bosa_accounts').select('savings_balance, shares_balance'),
         supabase.from('fosa_accounts').select('balance'),
-        supabase.from('loans').select('outstanding_balance, status').in('status', ['disbursed', 'active']),
+        supabase.from('loans').select('outstanding_balance, status').in('status', ['disbursed']),
         supabase.from('loans').select('id', { count: 'exact' }).eq('status', 'pending'),
         supabase.from('transactions').select('id', { count: 'exact' }).eq('transaction_type', 'withdrawal').eq('status', 'pending'),
         supabase.from('transactions')

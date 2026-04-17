@@ -26,12 +26,21 @@ export default function Loans() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase.from('loans')
-      .select('id, loan_number, loan_type, principal, outstanding_balance, monthly_repayment, total_repayable, duration_months, interest_rate, purpose, status, created_at, due_date, disbursed_at, member_id, members(full_name, member_number, phone_number)')
+    const { data, error } = await supabase.from('loans')
+      .select('id, loan_number, loan_type, principal, outstanding_balance, monthly_repayment, total_repayable, duration_months, interest_rate, purpose, status, created_at, due_date, disbursed_at, member_id')
       .eq('status', filter)
       .order('created_at', { ascending: false })
       .limit(100)
-    setLoans(data ?? [])
+    if (error) console.error('[LOANS]', error)
+    if (!data?.length) { setLoans([]); setLoading(false); return }
+
+    // Fetch member details separately
+    const memberIds = [...new Set(data.map((l: any) => l.member_id).filter(Boolean))]
+    const { data: members } = await supabase.from('members')
+      .select('id, full_name, member_number, phone_number')
+      .in('id', memberIds)
+    const memberMap = Object.fromEntries((members ?? []).map((m: any) => [m.id, m]))
+    setLoans(data.map((l: any) => ({ ...l, members: memberMap[l.member_id] ?? null })))
     setLoading(false)
   }
 

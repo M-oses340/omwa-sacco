@@ -30,7 +30,7 @@ export default function Notifications() {
   async function loadRecent() {
     setLoadingRecent(true)
     const { data } = await supabase.from('notifications')
-      .select('id, title, body, type, is_read, created_at, members!notifications_member_id_fkey(full_name, member_number)')
+      .select('id, title, body, data, created_at, read_at, members!notifications_member_id_fkey(full_name, member_number)')
       .order('created_at', { ascending: false })
       .limit(30)
     setRecent(data ?? [])
@@ -46,7 +46,7 @@ export default function Notifications() {
       if (target === 'all') {
         // Insert for all active members in batches
         const rows = members.map(m => ({
-          member_id: m.id, type, title: title.trim(), body: body.trim(), is_read: false,
+          member_id: m.id, title: title.trim(), body: body.trim(), data: { type },
         }))
         // Supabase insert supports up to 1000 rows at once
         for (let i = 0; i < rows.length; i += 500) {
@@ -56,7 +56,7 @@ export default function Notifications() {
       } else {
         if (!selectedId) { showToast('Select a member'); setSending(false); return }
         await supabase.from('notifications').insert({
-          member_id: selectedId, type, title: title.trim(), body: body.trim(), is_read: false,
+          member_id: selectedId, title: title.trim(), body: body.trim(), data: { type },
         })
         showToast('Notification sent')
       }
@@ -139,10 +139,10 @@ export default function Notifications() {
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <p className="text-sm font-medium leading-tight text-gray-900 dark:text-gray-100">{n.title}</p>
                     <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs ${
-                      n.type === 'alert'       ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
-                      n.type === 'loan_update' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' :
-                      n.type === 'payment'     ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' :
-                      'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>{n.type}</span>
+                      n.data?.type === 'alert'       ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
+                      n.data?.type === 'loan_update' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' :
+                      n.data?.type === 'payment'     ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' :
+                      'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>{n.data?.type ?? 'general'}</span>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 line-clamp-2">{n.body}</p>
                   <div className="flex items-center justify-between text-xs text-gray-400">

@@ -84,10 +84,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     itemCount: _notifications.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: cs.outlineVariant),
                     itemBuilder: (_, i) => _NotificationTile(
                       notification: _notifications[i],
                       onTap: () {
@@ -110,21 +109,29 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUnread = notification['read_at'] == null;
     final date = DateTime.tryParse(notification['created_at'] ?? '');
     final data = notification['data'] as Map<String, dynamic>? ?? {};
     final type = data['type'] as String? ?? '';
 
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
       child: Container(
-        color: isUnread ? cs.primary.withValues(alpha: 0.05) : null,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(14),
+          border: isUnread
+              ? Border.all(color: _iconColor(type).withValues(alpha: 0.4), width: 1)
+              : null,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 42, height: 42,
             decoration: BoxDecoration(
-              color: _iconColor(type).withValues(alpha: 0.12),
+              color: _iconColor(type).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(_iconFor(type), color: _iconColor(type), size: 20),
@@ -137,31 +144,33 @@ class _NotificationTile extends StatelessWidget {
                   child: Text(
                     notification['title'] ?? '',
                     style: TextStyle(
-                      fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
+                      fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
                       fontSize: 14,
+                      color: cs.onSurface,
                     ),
                   ),
                 ),
-                if (isUnread)
+                const SizedBox(width: 8),
+                if (date != null)
+                  Text(
+                    _timeAgo(date),
+                    style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45)),
+                  ),
+                if (isUnread) ...[
+                  const SizedBox(width: 6),
                   Container(
                     width: 8, height: 8,
-                    decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: _iconColor(type), shape: BoxShape.circle),
                   ),
+                ],
               ]),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 notification['body'] ?? '',
-                style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.7)),
+                style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.65)),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (date != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _timeAgo(date),
-                  style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45)),
-                ),
-              ],
             ]),
           ),
         ]),

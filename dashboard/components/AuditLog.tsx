@@ -23,7 +23,7 @@ export default function AuditLog() {
     setLoading(true)
     let q = supabase
       .from('audit_logs')
-      .select('id, action, table_name, record_id, old_data, new_data, created_at, members(full_name, member_number)')
+      .select('id, action, table_name, record_id, details, created_at, members!audit_logs_member_id_fkey(full_name, member_number)')
       .order('created_at', { ascending: false })
       .limit(300)
     if (startDate) q = q.gte('created_at', startDate)
@@ -115,7 +115,7 @@ export default function AuditLog() {
                   <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">{r.table_name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400 max-w-[120px] truncate">{r.record_id ?? '—'}</td>
                   <td className="px-4 py-3 max-w-xs">
-                    <ChangeDiff old={r.old_data} next={r.new_data} />
+                    <ChangeDiff details={r.details} />
                   </td>
                 </tr>
               ))}
@@ -128,27 +128,17 @@ export default function AuditLog() {
   )
 }
 
-function ChangeDiff({ old: oldData, next: newData }: { old: any; next: any }) {
-  if (!oldData && !newData) return <span className="text-gray-300 text-xs">—</span>
-  const o = oldData ?? {}
-  const n = newData ?? {}
-  const keys = [...new Set([...Object.keys(o), ...Object.keys(n)])]
-    .filter(k => o[k] !== n[k])
-    .slice(0, 4) // show max 4 changed fields
+function ChangeDiff({ details }: { details: any }) {
+  if (!details || !Object.keys(details).length) return <span className="text-gray-300 text-xs">—</span>
 
-  if (!keys.length) return <span className="text-gray-300 text-xs">no changes</span>
+  const entries = Object.entries(details).slice(0, 4)
 
   return (
     <div className="space-y-0.5">
-      {keys.map(k => (
+      {entries.map(([k, v]) => (
         <div key={k} className="text-xs">
           <span className="text-gray-400">{k}: </span>
-          {o[k] !== undefined && (
-            <span className="line-through text-red-400 mr-1">{String(o[k]).slice(0, 20)}</span>
-          )}
-          {n[k] !== undefined && (
-            <span className="text-green-600">{String(n[k]).slice(0, 20)}</span>
-          )}
+          <span className="text-gray-600 dark:text-gray-300">{String(v).slice(0, 30)}</span>
         </div>
       ))}
     </div>

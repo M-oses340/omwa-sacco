@@ -14,10 +14,8 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen> {
   String? _activeFilter;
   int _page = 1;
-  static const _pageSize = 10;
 
   static const _filters = <Map<String, String?>>[
-    {'label': 'All',        'value': null},
     {'label': 'Deposits',   'value': 'deposit'},
     {'label': 'Withdrawals','value': 'withdrawal'},
     {'label': 'Transfers',  'value': 'transfer'},
@@ -30,10 +28,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     context.read<TransactionsBloc>().add(
       TransactionsLoaded(memberId: widget.member['id'], type: type),
     );
-  }
-
-  void _goToPage(int page, List<Map<String, dynamic>> all) {
-    setState(() => _page = page);
   }
 
   @override
@@ -90,26 +84,38 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ]));
             }
 
-            final totalPages = (all.length / _pageSize).ceil();
-            final start = (_page - 1) * _pageSize;
-            final end = (start + _pageSize).clamp(0, all.length);
-            final pageTxs = all.sublist(start, end);
+            // card height ~72px + 10px gap, pagination ~52px, top padding 12px
+            return LayoutBuilder(builder: (context, constraints) {
+              const cardH = 72.0;
+              const cardGap = 10.0;
+              const paginationH = 52.0;
+              const topPad = 12.0;
+              final available = constraints.maxHeight - paginationH - topPad;
+              final perPage = ((available + cardGap) / (cardH + cardGap)).floor().clamp(1, 20);
 
-            return Column(children: [
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                  itemCount: pageTxs.length,
-                  itemBuilder: (_, i) => TransactionTile(tx: pageTxs[i]),
+              final totalPages = (all.length / perPage).ceil();
+              final page = _page.clamp(1, totalPages);
+              final start = (page - 1) * perPage;
+              final end = (start + perPage).clamp(0, all.length);
+              final pageTxs = all.sublist(start, end);
+
+              return Column(children: [
+                Expanded(
+                  child: ListView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                    itemCount: pageTxs.length,
+                    itemBuilder: (_, i) => TransactionTile(tx: pageTxs[i]),
+                  ),
                 ),
-              ),
-              if (totalPages > 1)
-                _Pagination(
-                  current: _page,
-                  total: totalPages,
-                  onPage: (p) => _goToPage(p, all),
-                ),
-            ]);
+                if (totalPages > 1)
+                  _Pagination(
+                    current: page,
+                    total: totalPages,
+                    onPage: (p) => setState(() => _page = p),
+                  ),
+              ]);
+            });
           }
           return const SizedBox.shrink();
         },

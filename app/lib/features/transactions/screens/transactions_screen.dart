@@ -146,26 +146,34 @@ class _Pagination extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         _PageBtn(
-          label: '< Previous',
+          label: '‹ Prev',
           enabled: current > 1,
           active: false,
           onTap: () => onPage(current - 1),
           cs: cs,
         ),
-        const SizedBox(width: 6),
-        ...pages.map((p) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: _PageBtn(
-            label: '$p',
-            enabled: true,
-            active: p == current,
-            onTap: () => onPage(p),
-            cs: cs,
+        const SizedBox(width: 4),
+        Flexible(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: pages.map((p) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: _PageBtn(
+                  label: '$p',
+                  enabled: true,
+                  active: p == current,
+                  onTap: () => onPage(p),
+                  cs: cs,
+                ),
+              )).toList(),
+            ),
           ),
-        )),
-        const SizedBox(width: 6),
+        ),
+        const SizedBox(width: 4),
         _PageBtn(
-          label: 'Next >',
+          label: 'Next ›',
           enabled: current < total,
           active: false,
           onTap: () => onPage(current + 1),
@@ -189,7 +197,7 @@ class _PageBtn extends StatelessWidget {
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: active ? cs.primary : cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),

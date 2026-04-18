@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse as json } from '../_shared/auth.ts'
-import { notify } from '../notifications/index.ts'
+import { notify } from '../_shared/notify.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,

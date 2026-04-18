@@ -9,10 +9,18 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } }
 )
 
+const WEBHOOK_CHALLENGE = Deno.env.get('INTASEND_WEBHOOK_CHALLENGE')
+
 Deno.serve(async (req: Request) => {
   try {
     const payload = await req.json()
     console.log('[WEBHOOK] payload:', JSON.stringify(payload))
+
+    // Validate challenge token if configured
+    if (WEBHOOK_CHALLENGE && payload.challenge !== WEBHOOK_CHALLENGE) {
+      console.warn('[WEBHOOK] Invalid challenge — rejected')
+      return json({ error: 'Unauthorized' }, 401)
+    }
 
     const { invoice_id, state, api_ref, net_amount, value } = payload
 
